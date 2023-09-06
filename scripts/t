@@ -1,0 +1,9 @@
+#!/bin/sh
+
+yincmd="gdb \"$(./scripts/l yin)\""
+yangcmd="winedbg \"$(./scripts/l yang)\""
+
+# quotes are important here
+./scripts/x "$yincmd" "$yangcmd"
+
+exit

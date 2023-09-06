@@ -1,0 +1,28 @@
+#!/bin/sh
+
+if [ ! -d "conf" ]
+then
+   mkdir conf
+fi
+
+if [ ! -f "conf/intel" ]
+then
+   printf "bin/yin/yin\nbin/yang/yang.exe" > conf/intel
+fi
+
+if [ "$1" = "update" ]
+then
+   printf "$2" > conf/intel
+fi
+
+# get path to binary + file name
+if [ "$1" = "yin" ]
+then
+   cat conf/intel | grep yin
+elif [ "$1" = "yang" ]
+then
+   cat conf/intel | grep yang
+fi
+
+
+exit

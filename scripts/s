@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# copy stuff to 2 locations
+sudo cp . /opt/savedsrc -r
+cp . ../SRC -r
+
+# list those locations
+ls /opt/savedsrc
+ls ../SRC
+
+exit

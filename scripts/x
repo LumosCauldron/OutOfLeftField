@@ -1,0 +1,24 @@
+#!/bin/sh
+
+yincmd="$1"
+yangcmd="$2"
+mode=$(./scripts/m)
+
+if [ "$mode" = "yin" ]
+then
+   sh -c "$yincmd"
+fi
+
+if [ "$mode" = "yang" ]
+then
+   sh -c "$yangcmd"
+fi
+
+if [ "$mode" = "yinyang" ]
+then
+   sh -c "$yincmd"
+   sh -c "$yangcmd"
+fi
+
+exit
+

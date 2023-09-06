@@ -1,0 +1,163 @@
+#!/bin/sh
+clear
+
+# Execute in directory where bin & src exist
+
+###########################################
+# Notes                                   #
+#                                         #
+# i386 is for extremely old CPU           #
+# generation dating before Pentium        #
+#                                         #
+# i686 is post Pentium generation         #
+#                                         #
+# i386 marks a 'compatibility' build      #
+# and should work on ANY 32bit x86 CPU.   #
+#                                         #
+# i686 may or may not use MMX, SSE and    #
+# more extensions                         #
+#                                         #
+###########################################
+
+############################
+# Compiler list            #
+#                          #
+# C                        #
+# i686-w64-mingw32-gcc     #
+# x86_64-w64-mingw32-gcc   #
+#                          #
+# C++                      #
+#                          #
+# i686-w64-mingw32-g++     #
+# x86_64-w64-mingw32-g++   #
+#                          #
+############################
+
+#######################
+# Helper Function     #
+function throwmsg     #
+{                     #
+   echo "$1"          #
+   exit 1             #
+}                     #
+#######################
+
+# preset code source [src is hardcoded]
+if [ -f "src" ] 
+then
+   throwmsg "no src in which to compile stuff"
+fi
+
+# preset locations
+codepath="src/prog.c"
+
+# get bin paths
+yinbin=$(./scripts/l yin)  # bin/yin/yin
+yangexe=$(./scripts/l yang) # bin/yang/yang.exe
+
+# get bin paths with file name hacked off
+bindir=${yinbin%%/*}     # bin
+yindir=${yinbin%/*}      # bin/yin
+yangdir=${yangexe%/*} # bin/yang
+
+if [ ! -d "$bindir"  ]
+then
+   mkdir "$bindir"
+fi
+
+if [ ! -d "$yindir"  ]
+then
+   mkdir "$yindir"
+fi
+
+if [ ! -d "$yangdir" ]
+then
+   mkdir "$yangdir"
+fi
+
+# preset program environment
+arch="x86_64" # i386 | i686 | x86 | x86_64
+lang="cc"
+
+# preset dependent
+compiler="undefined"
+
+# user defined
+debug="-g -D PRINTDEBUG -D NOUSESTATICINLINE"
+warn="-Werror"
+misc="-static"
+name="undefined"
+
+# check compile mode
+mode=$(./scripts/m)
+
+# if unix
+if [ ! $mode = "yang" ]
+then
+   if [ -d "$yindir" ]
+   then
+      if [ "$arch" = "x86_64" ]
+      then
+         compiler="/usr/bin/${arch}-linux-gnu-g${lang}"
+      else
+         compiler="/usr/bin/${arch}-linux-gnu-g${lang} -m32"
+      fi
+      name="yin"
+   fi
+
+   # check unix compiler exists
+   if [ ! -f "$compiler" ]
+   then
+      throwmsg "[${compiler}] not found"
+   fi
+   
+   # compile for unix
+   $compiler $debug $warn $misc "$codepath" -o "$name"
+   echo "[><]  |"
+   echo "[><]  |  $compiler $debug $warn $misc ${codepath} -o ${name}"
+   echo "[><]  |"
+   
+   mv "$name" "$yindir"
+   storage=$(ls -al "${yindir}/${name}")
+   
+   echo "[oo]  |"
+   echo "[oo]  |  ${storage}"
+   echo "[oo]  |"
+fi
+
+
+# if windows
+if [ ! $mode = "yin" ]
+then
+   if [ -d "$yangdir" ]
+   then
+      if [ "$arch" = "x86_64" ]
+      then
+         compiler="/usr/bin/${arch}-w64-mingw32-g${lang}"
+      else
+         compiler="/usr/bin/${arch}-w64-mingw32-g${lang} -m32"
+      fi
+      name="yang.exe"
+   fi
+
+   # check windows compiler exists
+   if [ ! -f "$compiler" ]
+   then
+      throwmsg "[${compiler}] not found"
+   fi
+   
+   # compile for windows
+   $compiler $debug $warn $misc "$codepath" -o "$name"
+   echo "[><]  |"
+   echo "[><]  |  $compiler $debug $warn $misc ${codepath} -o ${name}"
+   echo "[><]  |"
+   
+   mv "$name" "$yangdir"
+   storage=$(ls -al "${yangdir}/${name}")
+   
+   echo "[oo]  |"
+   echo "[oo]  |  ${storage}"
+   echo "[oo]  |"
+fi
+
+exit 0

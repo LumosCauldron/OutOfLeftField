@@ -1,0 +1,19 @@
+// system recon
+//   file system type
+//   ram space
+//   ram type
+//   hard drive space per drive
+//   hard drives
+//   hard drive types
+//   max filename len
+//   architecture
+//   cpu num cores
+//   cpu type
+//   gpu num cores
+//   gpu type
+//   current permission set
+//   connected devices
+//   connected devices space
+//   wifi nearby nodes
+//   bluetooth
+//

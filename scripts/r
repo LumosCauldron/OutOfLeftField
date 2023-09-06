@@ -1,0 +1,15 @@
+#!/bin/sh
+
+yinbin=$(./scripts/l yin)
+yangexe=$(./scripts/l yang)
+
+echo "[!]              BEGIN!              [!]"
+echo "|||                                  |||"
+
+./scripts/x "./${yinbin}" "wine \"${yangexe}\""
+
+output=$(./scripts/x "./${yinbin}" "wine \"${yangexe}\"") 
+hash=$(echo ${output} | md5sum | awk '{ print $1 }')
+
+echo "|+| ${hash} |+|"
+echo "[+]               DONE               [+]"

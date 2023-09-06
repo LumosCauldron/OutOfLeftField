@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if [ ! -d "conf" ]
+then
+   mkdir conf
+fi
+
+if [ ! -f "conf/mode" ]
+then
+   printf "yinyang" > conf/mode
+fi
+
+if [ -n "$1" ]
+then
+   printf "$1" > conf/mode
+fi
+
+cat conf/mode
