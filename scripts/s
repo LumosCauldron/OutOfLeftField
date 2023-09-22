@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # copy stuff to 2 locations
-sudo cp . /opt/savedsrc -r
-cp . ../SRC -r
+sudo cp -r . /opt/savedsrc
+cp -r . ../SRC
 
 # list those locations
 ls /opt/savedsrc

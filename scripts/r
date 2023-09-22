@@ -8,8 +8,7 @@ echo "|||                                  |||"
 
 ./scripts/x "./${yinbin}" "wine \"${yangexe}\""
 
-output=$(./scripts/x "./${yinbin}" "wine \"${yangexe}\"") 
-hash=$(echo ${output} | md5sum | awk '{ print $1 }')
+hash=$(echo $(./scripts/x "./${yinbin}" "wine \"${yangexe}\"" | tr -d '\0') | md5sum | awk '{ print $1 }')
 
 echo "|+| ${hash} |+|"
 echo "[+]               DONE               [+]"

@@ -1,7 +1,7 @@
 #ifndef TRAIN_H
 #define TRAIN_H
 
-#include "water.h"
+#include "base/water.h"
 
 typedef void (*freemem)(void*);
 struct _train
@@ -12,8 +12,6 @@ struct _train
    freemem freecargo;
 };
 typedef struct _train train;
-
-// protos
 
 
 stinl train* train_new(void* cargo, freemem freecargo)

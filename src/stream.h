@@ -1,9 +1,10 @@
 #ifndef STREAM_H
 #define STREAM_H
 
-#include <windows.h>
-#include "water.h"
+#include "base/water.h"
 #include "units.h"
+
+#include <windows.h>
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ACCESS MODES
 /*
@@ -210,11 +211,11 @@ If this flag is not specified, but the file or device has been opened for write 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ATTRIBUTE FLAGS
 
-#define WIN_FILE_ATTRIBUTE_ARCHIVE 0x20
+#define WIN_FILE_ATTRIBUTE_ARCHIVE 0x20 // no
 // The file should be archived. Applications use this attribute to mark files for backup or removal.
 
 
-#define WIN_FILE_ATTRIBUTE_ENCRYPTED 0x4000
+#define WIN_FILE_ATTRIBUTE_ENCRYPTED 0x4000 // no
 /*
 The file or directory is encrypted. For a file, this means that all data in the file is encrypted. For a directory, this means that encryption is the default for newly created files and subdirectories. For more information, see File Encryption.
 This flag has no effect if FILE_ATTRIBUTE_SYSTEM is also specified.
@@ -229,7 +230,7 @@ This flag is not supported on Home, Home Premium, Starter, or ARM editions of Wi
 // The file does not have other attributes set. This attribute is valid only if used alone.
 
 
-#define WIN_FILE_ATTRIBUTE_OFFLINE 0x1000
+#define WIN_FILE_ATTRIBUTE_OFFLINE 0x1000 // no
 /*
 The data of a file is not immediately available. This attribute indicates that file data is physically moved to offline storage. This attribute is used by Remote Storage, the hierarchical storage management software. Applications should not arbitrarily change this attribute.
 */
@@ -242,7 +243,7 @@ The data of a file is not immediately available. This attribute indicates that f
 // The file is part of or used exclusively by an operating system.
 
 
-#define WIN_FILE_ATTRIBUTE_TEMPORARY 0x100
+#define WIN_FILE_ATTRIBUTE_TEMPORARY 0x100 // no
 // The file is being used for temporary storage.
 
 
@@ -253,7 +254,7 @@ You must set this flag to obtain a handle to a directory. A directory handle can
 */
 
 
-#define WIN_FILE_FLAG_DELETE_ON_CLOSE 0x04000000
+#define WIN_FILE_FLAG_DELETE_ON_CLOSE 0x04000000 // no
 /*
 The file is to be deleted immediately after all of its handles are closed, which includes the specified handle and any other open or duplicated handles.
 If there are existing open handles to a file, the call fails unless they were all opened with the FILE_SHARE_DELETE share mode.
@@ -268,20 +269,20 @@ There are strict requirements for successfully working with files opened with Cr
 */
 
 
-#define WIN_FILE_FLAG_OPEN_NO_RECALL 0x00100000
+#define WIN_FILE_FLAG_OPEN_NO_RECALL 0x00100000 // no
 /*
 The file data is requested, but it should continue to be located in remote storage. It should not be transported back to local storage. This flag is for use by remote storage systems.
 */
 
 
-#define WIN_FILE_FLAG_OPEN_REPARSE_POINT 0x00200000
+#define WIN_FILE_FLAG_OPEN_REPARSE_POINT 0x00200000 // no
 /*
 Normal reparse point processing will not occur; CreateFile will attempt to open the reparse point. When a file is opened, a file handle is returned, whether or not the filter that controls the reparse point is operational.
 This flag cannot be used with the CREATE_ALWAYS flag.
 If the file is not a reparse point, then this flag is ignored.
 */
 
-#define WIN_FILE_FLAG_OVERLAPPED 0x40000000
+#define WIN_FILE_FLAG_OVERLAPPED 0x40000000 // no
 /*
 The file or device is being opened or created for asynchronous I/O.
 When subsequent I/O operations are completed on this handle, the event specified in the OVERLAPPED structure will be set to the signaled state.
@@ -321,57 +322,113 @@ This flag has no effect if the file system does not support cached I/O and FILE_
 #define WIN_FILE_FLAG_WRITE_THROUGH 0x80000000
 // Write operations will not go through any intermediate cache, they will go directly to disk. 
 
+#define readmode \
+(FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA |STANDARD_RIGHTS_READ | SYNCHRONIZE)
+#define writemode \
+(FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE)
+#define executemode \
+(FILE_EXECUTE | FILE_READ_ATTRIBUTES | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE)
+#define specialmode \
+(DELETE | WRITE_DAC | WRITE_OWNER)
+#define createmode \
+(readmode | writemode | executemode | specialmode)
 
-typedef u64 STREAM;
+
+typedef i64 STREAM;
 typedef int MODE;
 
-#define READ_MODE (FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA |STANDARD_RIGHTS_READ | SYNCHRONIZE)
 
-#define WRITE_MODE (FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE)
+// protos
+stinl void file_prefix(char* namebuffer, str* filename);
 
-#define EXECUTE_MODE (FILE_EXECUTE | FILE_READ_ATTRIBUTES | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE)
 
-#define SPECIAL_MODE (DELETE | WRITE_DAC | WRITE_OWNER)
+stinl void file_close(STREAM stream)
+{
+   assertion(stream != cast(INVALID_HANDLE_VALUE, i64), invalid handle value -1 given to file_close);
+   assertion(CloseHandle(cast(stream, void*)), stream failed to close in file_close);
+}
 
-#define CREATE_MODE (READ_MODE | WRITE_MODE | EXECUTE_MODE | SPECIAL_MODE)
 
-stinl STREAM file_open(str* filename, MODE access, MODE purpose)
-{  
-   // windows is the dumbest operating system ever created
-   char fullname[getlen(filename) + 4];
-   memto(fullname, "\\\\?\\", 4); // prefix "\\?\" to support 32767 bytes
-   memto(fullname + 4, getarray(filename), getlen(filename));
+stinl u8 file_destroy(str* filename)
+{
+   // make space
+   char fullname[getlen(filename) + 5];
+   u8 failflag = 0;
    
-   // create file
-   return cast(CreateFileA(fullname, 
+   // add the prefix "\\?\" to support 32767 bytes
+   file_prefix(fullname, filename); 
+   
+   // delete the file
+   sayline({}{}{}{}{}{}{}{}{});
+   explain(%s : %s\n, "destroy", fullname);
+   // start here.....
+      failflag = (!DeleteFileA(getarray(filename)));
+   explain(%s : %ld\n, "error", GetLastError());
+   sayline({}{}{}{}{}{}{}{}{});
+      assertret(failflag, failed to destroy a file);
+   return 1; // returns 0 if assertion fails
+}
+
+
+u8 file_exists(str* filename)
+{
+//..
+return 1;
+}
+
+
+stinl STREAM file_open(str* filename, MODE access)
+{  
+   MODE openmode;
+   char fullname[getlen(filename) + 5];
+   file_prefix(fullname, filename);
+
+   sayline([][][][][][][][][]);
+   if (access == readmode || access == executemode || access == specialmode)
+   {
+      openmode = OPEN_EXISTING;
+      explain(%s : %s\n, "open", fullname);
+   }
+   else
+   {
+      openmode = CREATE_ALWAYS;
+      explain(%s : %s\n, "create", fullname);
+   }
+   
+   register i64 retval = cast(CreateFileA(fullname + 4, 
                            access,
                            WIN_FILE_SHARE_NONE,
                            NULL, // unused security
-                           purpose,
+                           openmode,
                            FILE_ATTRIBUTE_SYSTEM | 
                            FILE_FLAG_WRITE_THROUGH | 
                            FILE_FLAG_NO_BUFFERING | 
                            FILE_ATTRIBUTE_HIDDEN, 
-                           NULL), // unused template file handle (lol what?)
-               u64);
-}
-
-stinl void file_close(STREAM stream)
-{
-   assertion(CloseHandle(cast(stream, void*)), stream failed to close in file_close);
-}
-
-stinl void file_destroy(str* filename)
-{
-   // windows is the dumbest operating system ever created
-   char fullname[getlen(filename) + 4];
-   memto(fullname, "\\\\?\\", 4); // prefix "\\?\" to support 32767 bytes
-   memto(fullname + 4, getarray(filename), getlen(filename));
+                           NULL), // unused template file handle (lol what? good grief windows)
+                     i64); // signed because INVALID_HANDLE_VALUE is -1
    
-   assertion(DeleteFileA(fullname), fullname failed to be destroyed in file_destroy);
-   sayline(fullname);
-   printstr(filename);
-   fflush(stdout);
+   // Output debugging if -D PRINTDEBUG specified
+   explain(%s : %ld\n, "handle", retval);
+   explain(%s : %ld\n, "error", GetLastError());
+   sayline([][][][][][][][][]);
+   
+   // create file
+   return retval;
+}
+
+
+stinl void file_prefix(char* namebuffer, str* filename)
+{
+   assertion(namebuffer, nnn namebuffer given to file_prefix);
+   assertion(filename, nnn filename given to file_prefix);
+   
+   register u64 len = getlen(filename);
+   // set prefix
+   memto(namebuffer, "\\\\?\\", 4);
+   // set file name
+   memto(namebuffer + 4, getarray(filename), len);
+   // nul terminate buffer
+   *(namebuffer + len + 4) = 0;
 }
 /*
 stinl u64 file_read(STREAM stream, u8* buffer, u64 toread)

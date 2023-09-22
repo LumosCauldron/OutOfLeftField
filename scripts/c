@@ -85,7 +85,7 @@ compiler="undefined"
 # user defined
 debug="-g -D PRINTDEBUG -D NOUSESTATICINLINE"
 warn="-Werror"
-misc="-static"
+misc="-static -ffreestanding"
 name="undefined"
 
 # check compile mode
@@ -103,6 +103,7 @@ then
          compiler="/usr/bin/${arch}-linux-gnu-g${lang} -m32"
       fi
       name="yin"
+      yincode="-D YINCODE"
    fi
 
    # check unix compiler exists
@@ -112,9 +113,13 @@ then
    fi
    
    # compile for unix
-   $compiler $debug $warn $misc "$codepath" -o "$name"
+   $compiler $debug $warn $yincode $misc "$codepath" -o "$name"
+   if [ ! "$?" = 0 ]
+   then 
+      exit
+   fi
    echo "[><]  |"
-   echo "[><]  |  $compiler $debug $warn $misc ${codepath} -o ${name}"
+   echo "[><]  |  $compiler $debug $warn $yincode $misc ${codepath} -o ${name}"
    echo "[><]  |"
    
    mv "$name" "$yindir"
@@ -138,6 +143,7 @@ then
          compiler="/usr/bin/${arch}-w64-mingw32-g${lang} -m32"
       fi
       name="yang.exe"
+      yangcode="-D YANGCODE"
    fi
 
    # check windows compiler exists
@@ -147,9 +153,13 @@ then
    fi
    
    # compile for windows
-   $compiler $debug $warn $misc "$codepath" -o "$name"
+   $compiler $debug $warn $yangcode $misc "$codepath" -o "$name"
+   if [ ! "$?" = 0 ]
+   then 
+      exit
+   fi
    echo "[><]  |"
-   echo "[><]  |  $compiler $debug $warn $misc ${codepath} -o ${name}"
+   echo "[><]  |  $compiler $debug $warn $yangcode $misc ${codepath} -o ${name}"
    echo "[><]  |"
    
    mv "$name" "$yangdir"
@@ -159,5 +169,7 @@ then
    echo "[oo]  |  ${storage}"
    echo "[oo]  |"
 fi
+
+./scripts/r
 
 exit 0

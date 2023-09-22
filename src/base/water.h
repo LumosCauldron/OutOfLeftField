@@ -1,42 +1,46 @@
 #ifndef __TAD
 #define __TAD
 
-#include <stdint.h>
+// let there be types &&&&&&&&&&&&&&&&&&&&&&&&&&
+#ifdef __INT8_TYPE__
+typedef __INT8_TYPE__ int8_t;
+#endif
+#ifdef __INT16_TYPE__
+typedef __INT16_TYPE__ int16_t;
+#endif
+#ifdef __INT32_TYPE__
+typedef __INT32_TYPE__ int32_t;
+#endif
+#ifdef __INT64_TYPE__
+typedef __INT64_TYPE__ int64_t;
+#endif
+#ifdef __UINT8_TYPE__
+typedef __UINT8_TYPE__ uint8_t;
+#endif
+#ifdef __UINT16_TYPE__
+typedef __UINT16_TYPE__ uint16_t;
+#endif
+#ifdef __UINT32_TYPE__
+typedef __UINT32_TYPE__ uint32_t;
+#endif
+#ifdef __UINT64_TYPE__
+typedef __UINT64_TYPE__ uint64_t;
+#endif
+// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 // allocation LOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOC
 #ifdef USEMYMEMOPS
    #include "alloc.h"
-   #include "memmove.h"
-   
-   #define give(x) allocPlusPlus((x)) sssmalloc((x))
-   #define regive(ptr, x) reallocPlusPlus((ptr)) sssrealloc((ptr), (x))
-   #define givewhite(x) allocPlusPlus((x)) ssscalloc((x))
-   #define restore(x) freedPlusPlus((x)) sssfree((void*)(x))
-
-   #define malloc(x) give((x))
-   #define realloc(ptr, x) regive((ptr), (x))
-   #define calloc(x, sz) givewhite((x) * (sz))
-   #define free(x) restore((void*)(x))
-   
-   #define memmove(dest,src,len) memto((dest), (src), (len))
-   #define memset(dest, c, len) meminit((dest), (c), (len))
 #else
    #include <stdlib.h>
-   #include <string.h>
-   
-   #define give(x) allocPlusPlus((x)) malloc((x))
-   #define regive(ptr, x) reallocPlusPlus((ptr)) realloc((ptr), (x))
-   #define givewhite(x) allocPlusPlus((x)) calloc((x), 1)
-   #define restore(x) freedPlusPlus((x)) free((void*)(x))
-
-   #define sssmalloc(x) give((x))
-   #define sssrealloc(x) regive((x))
-   #define ssscalloc(x) givewhite((x))
-   #define sssfree(x) restore((void*)(x))
-   
-   #define memto(dest,src,len) memmove((dest), (src), (len))
-   #define meminit(dest, c, len) memset((dest), (c), (len))
 #endif // USEMYMEMOPS
+
+// Don't worry, weird syntax is taken care of in the PRINTDEBUG 
+// section (we still get the correct pointer assigned)
+#define give(x) allocPlusPlus((x)) malloc((x))
+#define regive(ptr, x) reallocPlusPlus((ptr)) realloc((ptr), (x))
+#define givewhite(x) allocPlusPlus((x)) calloc((x), 1)
+#define restore(x) freedPlusPlus((x)) free((void*)(x))
 
 // LOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOCLOC
 
@@ -53,6 +57,7 @@
 // file attributes FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 //
 // access permissions 
+/*
 #define OWNER_READ       0400    // 256
 #define OWNER_WRITE      0200    // 128
 #define OWNER_EXECUTE    0100    //  64
@@ -103,6 +108,7 @@
 //
 // Max file path length
 #define MAXPATHLEN	 4096
+*/
 // FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 
 
@@ -198,25 +204,32 @@
 // IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 
 // output OUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUT
-#ifdef USEMYIO
+#if defined(USEMYIO) && defined(PRINTDEBUG)
+   #include "base/base_printf.h"
    #define explain(format, ...) console_explain(#format, __VA_ARGS__)
-   #define say(str) console_explain(%s, #str)
-   #define sayc(c) console_sayc((c), stdout)
-   #define sayline(str) console_say(#str)
-   #define sayspaced(str) console_explain(%s, str)
-   #define saystrline(str) console_say(str)
+   #define say(cstr) console_explain(%s, #cstr)
+   #define sayc(c) console_sayc(##c, stdout)
+   #define sayline(cstr) console_say(#cstr)
+   #define saycstr(cstr) console_say((cstr))
    #define saynum(num) console_explain("%ld\n", cast((num), i64))
    #define sayhex(hex) console_explain("%lx\n", cast((hex), u64))
-#else
+#elif PRINTDEBUG
    #include <stdio.h>
    #define explain(format, ...) printf(#format, __VA_ARGS__)
-   #define say(str) explain(%s, #str) 
-   #define sayc(c) putc((c), stdout)
-   #define sayline(str) puts(#str)
-   #define sayspaced(str) explain(%s, str)
-   #define saystrline(str) puts(str)
+   #define say(cstr) explain(%s, #cstr) 
+   #define sayc(c) putc(##c, stdout)
+   #define sayline(cstr) puts(#cstr)
+   #define saycstr(cstr) puts((cstr))
    #define saynum(num) explain(%ld\n, cast((num), i64))
    #define sayhex(hex) explain(%lx\n, cast((hex), u64))
+#else
+   #define explain(format, ...)
+   #define say(cstr)
+   #define sayc(c)
+   #define sayline(cstr)
+   #define saycstr(cstr)
+   #define saynum(num)
+   #define sayhex(hex)
 #endif // USEMYIO
 // OUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUTOUT
 

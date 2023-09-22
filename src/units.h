@@ -1,7 +1,7 @@
 #ifndef UNITS_H
 #define UNITS_H
 
-#include "water.h"
+#include "base/water.h"
 
 struct bytes
 {
@@ -19,7 +19,40 @@ stinl u64 getlen(str* b);
 stinl str* initstr(str*, u8);
 stinl u8 typeofstr(str*);
 
-// nice tool as 'strlen'
+// KEY FUNCTIONS BEGIN /////////////////////////////////////////////////////////////////////
+stinl u8* memto(void* destvoid, void* srcvoid, u64 len)
+{
+   #define dest (cast(destvoid, u8*))
+   #define src (cast(srcvoid, u8*))
+   assertret(dest, "nnn dest given to memto");
+   if (!len || !src || dest == src)
+	   return dest;
+
+   register u64 blocks   = len / sizeof(u64);		// Hold number of 8-byte 'blocks' to copy
+   register u64 leftover = len % sizeof(u64);		// Hold number of 'leftover' bytes
+   register u64 i;
+   if (dest > src && dest < (src + len)) // If overlap
+   {
+	   u64* destptr = (u64*)(dest);
+	   u64* srcptr  = (u64*)(src);
+	   for (i = 1; i <= leftover; ++i)
+		   *(dest + len - i) = *(src + len - i);
+	   for (i = blocks - 1; i >= 0; --i)
+		   *(destptr + i) = *(srcptr + i);
+   }
+   else // regular execution
+   {
+	   u64* destptr = (u64*)(dest);
+	   u64* srcptr  = (u64*)(src);
+	   for (i = 0; i < blocks; ++i)
+		   *(destptr + i) = *(srcptr + i);
+	   for (i = leftover; i > 0; --i)
+		   *(dest + len - i) = *(src + len - i);
+   }
+   return dest;
+   #undef dest
+   #undef src
+}
 stinl u64 tilnul(void* bytes)
 {
    assertret(bytes, nnn bytes given to tilnul);
@@ -33,6 +66,19 @@ stinl u64 tilnul(void* bytes)
 
    return count;
 }
+void zeroarray(u8* ptr, u64 len)	// Zeros out an array
+{
+   register u64 blocks    = len / sizeof(u64);
+   register u64 leftover  = len % sizeof(u64);
+   register u64 i;
+   u64* blockptr = (u64*)(ptr);
+
+   for (i = 0; i < blocks; ++i)
+	   *(blockptr + i) = 0;	
+   for (i = 1; i <= leftover; ++i)	
+	   *(ptr + len - i) = 0; 
+}
+// KEY FUNCTIONS END ///////////////////////////////////////////////////////////////////////
 
 // sets 
 stinl u64 tolen7(u64 len, u8 b7)
@@ -153,7 +199,7 @@ stinl u64 lenoflen7(u64 len7)
    return 0x00ffffffffffffff & len7;
 }
 
-stinl u64 getindex(str* b, u64 i)
+stinl u64 index(str* b, u64 i)
 {
    assertret(i < getlen(b), index i is larger than str length);
    
@@ -249,14 +295,14 @@ stinl str* appendstr(str* mainstr, str* toadd)
    if (getkind(mainstr) != kindheap)
    {
       dest = cast(give(bothlen + 1), u8*);
-      memmove(dest, getarray(mainstr), mainlen);
-      memmove(dest + mainlen, getarray(toadd), toaddlen);
+      memto(dest, getarray(mainstr), mainlen);
+      memto(dest + mainlen, getarray(toadd), toaddlen);
       mainstr = hcharstr(bothlen, dest);
    }
    else
    {
       dest = cast(regive(getarray(mainstr), bothlen + 1), u8*);
-      memmove(dest + mainlen, getarray(toadd), toaddlen);
+      memto(dest + mainlen, getarray(toadd), toaddlen);
    }
 
    // nul terminate
@@ -491,8 +537,7 @@ void printstr(str* s)
    if (!s)
       return;
    
-   sayline(_______________);   
-   
+   sayline(_________________);
    switch(kindofstr(s))
    {
       case kinddata : sayline(KIND -> data);
@@ -507,46 +552,42 @@ void printstr(str* s)
    u8 stringtype = typeofstr(s);
    switch(typeofstr(s))
    {
-      case t1 : sayline(TYPE -> 8 bit);
+      case t1 : sayline(TYPE -> 8 CHAR);
          break;
-      case t2 : sayline(TYPE -> 16 bit);
+      case t2 : sayline(TYPE -> 16 SHORT);
          break;
-      case t4 : sayline(TYPE -> 32 bit);
+      case t4 : sayline(TYPE -> 32 INT);
          break;
-      case t8 : sayline(TYPE -> 64 bit);
+      case t8 : sayline(TYPE -> 64 LONG/PTR);
          break;
       default : sayline(TYPE -> unknown);
    }
    
    u64 len = getlen(s);
-   sayspaced("LEN  -> ");
+   say("LEN  -> ");
    saynum(len);
    
-   sayspaced("ARR* -> ");
+   say("ARR* -> ");
    u64 i;
    for (i = 0; i < len; ++i)
    {
-      if (stringtype == t1)
-         sayc(cast(elem8(s, i), char));
-      else
+      switch(stringtype)
       {
-         switch(stringtype)
-         {
-            case t8 : explain(%lu, cast(elem64(s, i), i64));
+         case t1 : explain(%c, cast(index(s, i), char));
             break;
-            case t4 : explain(%lu, cast(elem32(s, i), i32));
+         case t8 : explain(%lu , cast(index(s, i), i64));
             break;
-            case t2 : explain(%lu, cast(elem16(s, i), i16));
+         case t4 : explain(%lu , cast(index(s, i), i32));
             break;
-            default : 
+         case t2 : explain(%lu , cast(index(s, i), i16));
             break;
-         }
-         sayc(' ');
+         default : 
+            break;
       }
    }
    sayline();
    
-   sayspaced("SEE  -> ");
+   say("SEE  -> ");
    for (; len > 0; --len)
       say(*);
    sayline();
@@ -555,7 +596,8 @@ void printstr(str* s)
       sayline(evading);
    if (protectedstr(s))
       sayline(protected);
-   sayline(^^^^^^^^^^^^^^^);
+   sayline(_________________);
+
 }
 #else
 void printstr(str* s) 
