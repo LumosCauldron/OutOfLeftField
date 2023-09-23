@@ -25,11 +25,12 @@ clear
 # C                        #
 # i686-w64-mingw32-gcc     #
 # x86_64-w64-mingw32-gcc   #
+# x86_linux-gnu-gcc        #
 #                          #
 # C++                      #
-#                          #
 # i686-w64-mingw32-g++     #
 # x86_64-w64-mingw32-g++   #
+# x86_64_linux-gnu-gcc     #
 #                          #
 ############################
 

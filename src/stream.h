@@ -356,13 +356,13 @@ stinl u8 file_destroy(str* filename)
    u8 failflag = 0;
    
    // add the prefix "\\?\" to support 32767 bytes
-   file_prefix(fullname, filename); 
+   //file_prefix(fullname, filename); 
    
    // delete the file
    sayline({}{}{}{}{}{}{}{}{});
-   explain(%s : %s\n, "destroy", fullname);
+   explain(%s : %s\n, "destroy", getarray(filename));
    // start here.....
-      failflag = (!DeleteFileA(getarray(filename)));
+      failflag = DeleteFileA(getarray(filename));
    explain(%s : %ld\n, "error", GetLastError());
    sayline({}{}{}{}{}{}{}{}{});
       assertret(failflag, failed to destroy a file);
@@ -387,25 +387,25 @@ stinl STREAM file_open(str* filename, MODE access)
    if (access == readmode || access == executemode || access == specialmode)
    {
       openmode = OPEN_EXISTING;
-      explain(%s : %s\n, "open", fullname);
+      explain(%s : %s\n, "open", getarray(filename));
    }
    else
    {
       openmode = CREATE_ALWAYS;
-      explain(%s : %s\n, "create", fullname);
+      explain(%s : %s\n, "create", getarray(filename));
    }
    
-   register i64 retval = cast(CreateFileA(fullname + 4, 
-                           access,
-                           WIN_FILE_SHARE_NONE,
-                           NULL, // unused security
-                           openmode,
-                           FILE_ATTRIBUTE_SYSTEM | 
-                           FILE_FLAG_WRITE_THROUGH | 
-                           FILE_FLAG_NO_BUFFERING | 
-                           FILE_ATTRIBUTE_HIDDEN, 
-                           NULL), // unused template file handle (lol what? good grief windows)
-                     i64); // signed because INVALID_HANDLE_VALUE is -1
+   register i64 retval = cast(CreateFileA(getarray(filename), 
+                              access,
+                              WIN_FILE_SHARE_NONE,
+                              NULL, // unused security
+                              openmode,
+                              FILE_ATTRIBUTE_SYSTEM | 
+                              FILE_FLAG_WRITE_THROUGH | 
+                              FILE_FLAG_NO_BUFFERING | 
+                              FILE_ATTRIBUTE_HIDDEN, 
+                              NULL), // unused template file handle (lol what? good grief windows)
+                         i64); // signed because INVALID_HANDLE_VALUE is -1
    
    // Output debugging if -D PRINTDEBUG specified
    explain(%s : %ld\n, "handle", retval);

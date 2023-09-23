@@ -1,0 +1,5 @@
+# Interesting Windows Behavior
+
+1.
+Another concern is inconsistent behavior that would result by exposing long path support. Long paths with the \\?\ prefix can be used in most of the file-related Windows APIs, but not all Windows APIs. For example, LoadLibrary, which maps a module into the address of the calling process, fails if the file name is longer than MAX_PATH. So this means MoveFile will let you move a DLL to a location such that its path is longer than 260 characters, but when you try to load the DLL, it would fail. There are similar examples throughout the Windows APIs; some workarounds exist, but they are on a case-by-case basis.
+Another factor, which is considered more of a pain factor, is compatibility with other Windows-based applications and the Windows shell itself, which only work with paths shorter than MAX_PATH (note that the Vista shell attempts to soften this limit, briefly described below). This means that if .NET supports long paths, then we’d let you create files that you couldn’t access via Explorer or the command prompt.
