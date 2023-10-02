@@ -28,8 +28,8 @@ stinl u8* memto(void* destvoid, void* srcvoid, u64 len)
    if (!len || !src || dest == src)
 	   return dest;
 
-   register u64 blocks   = len / sizeof(u64);		// Hold number of 8-byte 'blocks' to copy
-   register u64 leftover = len % sizeof(u64);		// Hold number of 'leftover' bytes
+   register u64 blocks   = len >> 3; // Hold number of 8-byte 'blocks' to copy
+   register u64 leftover = len & 0b00000111;	// Hold number of 'leftover' bytes
    register u64 i;
    if (dest > src && dest < (src + len)) // If overlap
    {

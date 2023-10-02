@@ -48,9 +48,11 @@ typedef __UINT64_TYPE__ uint64_t;
 #ifdef PRINTDEBUG
    #define assertion(expr, msg) if (!(expr)) { sayline(msg); return; }
    #define assertret(expr, msg) if (!(expr)) { sayline(msg); return 0; }
+   #define assertretx(expr, msg, x) if (!(expr)) { sayline(msg); return (x); }
 #else
    #define assertion(expr, msg)
    #define assertret(expr, msg)
+   #define assertretx(expr, msg, x)
 #endif
 // ******************************************************************
 
@@ -164,6 +166,7 @@ typedef __UINT64_TYPE__ uint64_t;
 //
 // stack strs
 #define datastr(arr) cast(((u64 [2]){[0] = tolen7(litstrlen((arr)), chardata), [1] = cast((arr), u64)}), str*)
+#define wdatastr(arr) cast(((u64 [2]){[0] = tolen7(litstrlen((arr)), shortdata), [1] = cast((arr), u64)}), str*)
 #define charstr(len, arr) cast(((u64 [2]){[0] = tolen7((len), charstack), [1] = cast((arr), u64)}), str*)
 #define shortstr(len, arr) cast(((u64 [2]){[0] = tolen7((len), shortstack), [1] = cast((arr), u64)}), str*)
 #define intstr(len, arr) cast(((u64 [2]){[0] = tolen7((len), intstack), [1] = cast((arr), u64)}), str*)
@@ -263,6 +266,15 @@ typedef __UINT64_TYPE__ uint64_t;
 #define i16 int16_t
 #define i32 int32_t
 #define i64 int64_t
+
+#define maxhold_u8 (0xff)
+#define maxhold_u16 (0xffff)
+#define maxhold_u32 (0xffffffff)
+#define maxhold_u64 (0xffffffffffffffff)
+#define maxhold_i8 (0x7f)
+#define maxhold_i16 (0x7fff)
+#define maxhold_i32 (0x7fffffff)
+#define maxhold_i64 (0x7fffffffffffffff)
 ////////////////////
 
 // DEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUG
