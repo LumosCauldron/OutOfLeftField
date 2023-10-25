@@ -1,36 +1,72 @@
-#include "stream.h"
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+#ifdef YANGCODE
+   #include "include/yang/lamplight.h"
+   #include "include/yang/winfiles.h"
+   #define testfile "\\??\\test\\" //...check this
+#elif YINCODE
+   #include "include/yin/lamplight.h"
+   #include "include/yin/nixfiles.h"
+   #define txt       "/home/servant/Documents/OutOfLeftField/test/data.txt"
+   #define txtcopy   "/home/servant/Documents/OutOfLeftField/test/data_copy.txt"
+   #define jpg       "/home/servant/Documents/OutOfLeftField/test/data.jpg"
+   #define jpgcopy   "/home/servant/Documents/OutOfLeftField/test/data_copy.jpg"
+   #define png       "/home/servant/Documents/OutOfLeftField/test/data.png"
+   #define pngcopy   "/home/servant/Documents/OutOfLeftField/test/data_copy.png"
+#else
+   #error WHATMODE
+#endif
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
 
-int main()
+
+
+void copyfile(str* oldf, str* newf)
 {
-   const int num = 270;
-   u8* fileName = charspace(270); // 300 'a' characters + null terminator
-
-    // Initialize the file name with 300 'a' characters
-    for (int i = 0; i < num; i++) 
-        fileName[i] = 'a';
-
-   #ifdef YINCODE
-      str* test = datastr("/home/servant/Documents/OutOfLeftField/test/data.txt");
-   #elif YANGCODE
-      str* test = datastr("\\\\?\\test\\");
-   #endif 
-   str* ultratest = appendstr(test, charstr(num, fileName));
-   file_close(file_open(ultratest, createmode));
-   file_destroy(ultratest);
+   u64 filesz = file_size(oldf);
+   assertret(filesz, file_size returned zero);
    
-   str* test1 = datastr("\\\\?\\test\\data.txt");
-   file_close(file_open(test1, createmode));
-   file_destroy(test1);
+   STREAM portal1 = file_open(oldf, readmode);
+   assertret(portal1 > INVALID_STREAM, file_open returned invalid stream for old file);
+   STREAM portal2 = file_open(newf, createmode);
+   assertret(portal2 > INVALID_STREAM, file_open returned invalid stream for new file);
    
-   file_close(file_open(charstr(num, fileName), createmode));
-   file_destroy(charstr(num, fileName));
+   u64 added = INCREASE_TO_ALIGNED_AMOUNT(filesz) - filesz;
+   str* holdfile = hbuffer(INCREASE_TO_ALIGNED_AMOUNT(filesz));
+   setlen(holdfile, getlen(holdfile) - added);
+   explain(!!! File size is %lu bytes. !!!\n, filesz);
+   if (Lamp(portal1, getarray(holdfile), filesz, nullptr, ALIGNED_RATE, t1))
+   {
+      sayline(Read this file successfully.);
+   }
+   else
+   {
+      sayline(Did NOT read this file successfully.);
+   }
    
-   str* test2 = datastr("test\\data.txt");
-   file_close(file_open(test2, createmode));
-   file_destroy(test2);
    
-   freestr(&ultratest);
-   RETURN;
+   if (Light(portal2, getarray(holdfile), filesz, nullptr, ALIGNED_RATE, t1))
+   {
+      sayline(Wrote this file successfully.);
+   }
+   else
+   {
+      sayline(Did NOT write this file successfully.);
+   }
+   
+   freestr(&holdfile);
 }
 
-/* */
+// ====================================================
+// ====================================================
+int main()
+{  
+   str* oldfile = datastr(png);
+   str* newfile = datastr(pngcopy);
+   
+   copyfile(oldfile, newfile);
+   
+   RETURN;
+}
+// ====================================================
+// ====================================================
