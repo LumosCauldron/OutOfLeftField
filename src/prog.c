@@ -33,7 +33,7 @@ void copyfile(str* oldf, str* newf)
    
    u64 added = INCREASE_TO_ALIGNED_AMOUNT(filesz) - filesz;
    str* holdfile = hbuffer(INCREASE_TO_ALIGNED_AMOUNT(filesz));
-   setlen(holdfile, getlen(holdfile) - added);
+   
    explain(!!! File size is %lu bytes. !!!\n, filesz);
    if (Lamp(portal1, getarray(holdfile), filesz, nullptr, ALIGNED_RATE, t1))
    {

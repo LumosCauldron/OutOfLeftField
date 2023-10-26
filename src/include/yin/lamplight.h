@@ -28,7 +28,7 @@ typedef u8 (*BLACKBOX)(void*);
 //      'amount' MUST be SIGNED and 64 bits long
 //
 // _______________________________________________________
-stinl u8 Lamp(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 rate, u8 datatype)
+stinl u8 Lamp(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 quota, u8 datatype)
 {
    sayline(~~~~~~~~~~~~~~~~~~);
    assertret0(portal >= 0, bad portal in Lamp);
@@ -51,35 +51,40 @@ stinl u8 Lamp(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 ra
       return 0;
    }
    
-   // =-> if rate is greater than specified amount or zero, 
+   // =-> if quota is greater than specified amount or zero, 
    //     make it equal to the amount to read
-   if (amount < rate || !rate)
+   if (amount < quota || !quota)
    {
-      rate = amount;
+      quota = amount;
    }
    
-   // =-> read it
+   // =-> read and process each quota of bytes
    do
    {
       say(<);
-      if (amount >= rate)
-      {
-         amt = read(portal, cast(dest, u8*), rate);
-      }
-      else
-      {
-         amt = read(portal, cast(dest, u8*), amount);
-      }
       
-      // =-> debug error check
-      asserterrnoret0(amt > READ_FAILED, \nposix read error );
-      asserterrnoret0(amt == rate || amount == amt, \ndid-not-read-up-to-rate-specified read error );
-      
-      // =-> program error check
-      if ((amt <= READ_FAILED) || 
-          (amt != rate && amt != amount))
+      // =-> do while ensures that quota is met
+      amt = 0;
+      do
       {
-         return 0;
+         amt += read(portal, cast(dest, u8*), quota - amt);
+         
+         // =-> program/debug error check
+         asserterrnoret0(amt > READ_FAILED, \nposix read error );
+         
+      } while (cast(amt, u32) < quota && // =-> keep going as long as quota not met
+              (cast(amount, u32) > quota || amt < amount)) // =-> if overall amount to read is less than quota,
+                                                           //     amount becomes the quota to meet, then break out
+      
+      // =-> if we read equal to or over remainder of amount to be read
+      //     set amt to amount, else it goes around again 
+      //     purpose: ignore data from over reading due to aligned reading
+      if (cast(amount, u32) < quota)
+      {
+         if (amt > amount)
+         {
+            amt = amount;
+         }
       }
       
       // =-> process what we read if needed
@@ -106,7 +111,7 @@ stinl u8 Lamp(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 ra
          dest = cast((cast(dest, u8*) + amt), void*);
       }
       
-      // =-> decrease amount we still need to read
+      // =-> update amount left to read
       amount -= amt;
    } while (amount > 0);
    sayline(~~~~~~~~~~~~~~~~~~);
@@ -117,7 +122,7 @@ stinl u8 Lamp(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 ra
 //      'amount' MUST be SIGNED and 64 bits long
 //
 // _______________________________________________________
-stinl u8 Light(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 rate, u8 datatype)
+stinl u8 Light(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 quota, u8 datatype)
 {
    sayline(^^^^^^^^^^^^^^^^^^);
    assertret0(portal >= 0, bad portal in Lamp);
@@ -140,37 +145,17 @@ stinl u8 Light(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 r
       return 0;
    }
    
-   // =-> if rate is greater than specified amount or zero, 
+   // =-> if quota is greater than specified amount or zero, 
    //     make it equal to the amount to write
-   if (amount < rate || !rate)
+   if (amount < quota || !quota)
    {
-      rate = amount;
+      quota = amount;
    }
    
-   // =-> write it
+   // =-> process and write each quota of bytes
    do
-   {          
-      say(>);
-      if (amount >= rate)
-      {
-         amt = write(portal, cast(dest, u8*), rate);
-      }
-      else
-      {
-         amt = write(portal, cast(dest, u8*), amount);
-      }
-      // =-> debug error check
-      asserterrnoret0(amt > WRITE_FAILED, posix write error );
-      asserterrnoret0(amt == rate || amt == amount, did-not-write-up-to-rate-specified write error );
-      
-      // =-> program error check
-      if ((amt <= WRITE_FAILED) || 
-          (amt != rate && amt != amount))
-      {
-         return 0;
-      }
-      
-      // =-> process what we write if needed
+   {
+      // =-> process before writing
       // =-> note that charstr, shortstr, longstr, and intstr are stack declarations
       //     their usage must be within SCOPE of the switch statement brackets
       if (dealwith)
@@ -189,7 +174,34 @@ stinl u8 Light(STREAM portal, void* dest, u64 quantity, BLACKBOX dealwith, u32 r
                        if (!(dealwith(temp))) { return BLACKBOX_SIGNALED_STOP; } break;   
          } 
       }
-      else
+   
+      say(>);
+      // =-> do while ensures that quota is met
+      amt = 0;
+      do
+      {
+         amt += write(portal, cast(dest, u8*), quota - amt);
+         
+         // =-> program/debug error check
+         asserterrnoret0(amt > READ_FAILED, \nposix read error );
+         
+      } while (cast(amt, u32) < quota && // =-> keep going as long as quota not met
+              (cast(amount, u32) > quota || amt < amount)) // =-> if overall amount to write is less than quota,
+                                                           //     amount becomes the quota to meet, then break out
+      
+      // =-> if we write equal to or over remainder of amount to be written
+      //     set amt to amount, else it goes around again 
+      //     purpose: ignore data from over writing due to alignment constraint
+      if (cast(amount, u32) < quota)
+      {
+         if (amt > amount)
+         {
+            amt = amount;
+         }
+      }
+      
+      // =-> if no processing needed
+      if (!dealwith)
       {  // =-> only increment 'dest' if we haven't dealt with the write out data yet
          dest = cast((cast(dest, u8*) + amt), void*);
       }
