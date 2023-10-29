@@ -31,11 +31,10 @@ void copyfile(str* oldf, str* newf)
    STREAM portal2 = file_open(newf, createmode);
    assertret(portal2 > INVALID_STREAM, file_open returned invalid stream for new file);
    
-   u64 added = INCREASE_TO_ALIGNED_AMOUNT(filesz) - filesz;
-   str* holdfile = hbuffer(INCREASE_TO_ALIGNED_AMOUNT(filesz));
-   
+   str* holdfile = hbuffer(filesz);
    explain(!!! File size is %lu bytes. !!!\n, filesz);
-   if (Lamp(portal1, getarray(holdfile), filesz, nullptr, ALIGNED_RATE, t1))
+   
+   if (Lamp(portal1, getarray(holdfile), getlen(holdfile), nullptr, ALIGNED_RATE, t1))
    {
       sayline(Read this file successfully.);
    }
@@ -44,9 +43,9 @@ void copyfile(str* oldf, str* newf)
       sayline(Did NOT read this file successfully.);
    }
    
-   
-   if (Light(portal2, getarray(holdfile), filesz, nullptr, ALIGNED_RATE, t1))
+   if (Light(portal2, getarray(holdfile), getlen(holdfile), nullptr, ALIGNED_RATE, t1))
    {
+      ftruncate(portal2, filesz);
       sayline(Wrote this file successfully.);
    }
    else
