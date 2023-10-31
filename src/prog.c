@@ -31,10 +31,11 @@ void copyfile(str* oldf, str* newf)
    STREAM portal2 = file_open(newf, createmode);
    assertret(portal2 > INVALID_STREAM, file_open returned invalid stream for new file);
    
-   str* holdfile = hbuffer(filesz);
+   str* holdfile = hbuffer(INCREASE_TO_ALIGNED_AMOUNT(filesz));
    explain(!!! File size is %lu bytes. !!!\n, filesz);
+   explain(!!! Rate for r/w is %lu bytes. !!!\n, FAST_ALIGNED_RATE);
    
-   if (Lamp(portal1, getarray(holdfile), getlen(holdfile), nullptr, ALIGNED_RATE, t1))
+   if (Lamp(portal1, getarray(holdfile), filesz, nullptr, FAST_ALIGNED_RATE, t1))
    {
       sayline(Read this file successfully.);
    }
@@ -43,7 +44,7 @@ void copyfile(str* oldf, str* newf)
       sayline(Did NOT read this file successfully.);
    }
    
-   if (Light(portal2, getarray(holdfile), getlen(holdfile), nullptr, ALIGNED_RATE, t1))
+   if (Light(portal2, getarray(holdfile), filesz, nullptr, FAST_ALIGNED_RATE, t1))
    {
       ftruncate(portal2, filesz);
       sayline(Wrote this file successfully.);
@@ -60,8 +61,8 @@ void copyfile(str* oldf, str* newf)
 // ====================================================
 int main()
 {  
-   str* oldfile = datastr(png);
-   str* newfile = datastr(pngcopy);
+   str* oldfile = datastr("test/randomdata");
+   str* newfile = datastr("test/randomdata_copy");
    
    copyfile(oldfile, newfile);
    
