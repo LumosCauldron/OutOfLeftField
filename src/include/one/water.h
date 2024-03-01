@@ -66,7 +66,7 @@ typedef __UINT64_TYPE__ uint64_t;
 #endif
 // ******************************************************************
 
-// mem attributes mmmmmmmmmmmmmmmm
+// mem attributes mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 #define memkind 0b00000011 // mask to get value (not a conditional value)
 #define kinddata 0b00000011
 #define kindstack 0b00000010
@@ -84,7 +84,7 @@ typedef __UINT64_TYPE__ uint64_t;
 #define memprotect 0b00100000 // mask to get value
 #define clearevade 0b11101111 // mask out tool
 #define clearprotect 0b11011111 // mask out tool
-// mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+// mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 
 // miscelaneous IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 //
@@ -110,6 +110,10 @@ typedef __UINT64_TYPE__ uint64_t;
 #define nobuffer nullptr
 #define nnn NULLPTR
 //
+//
+// function pointer
+typedef u64 (*blackbox)(void*);
+//
 // stacks
 #define charspace(x) cast(((char [(x) + 1]){[(x)] = 0}), u8*)
 #define shortspace(x) cast(((u16 [(x) + 1]){[(x)] = 0}), u16*)
@@ -118,7 +122,7 @@ typedef __UINT64_TYPE__ uint64_t;
 //
 // stack strs
 #define datastr(arr) cast(((u64 [2]){[0] = tolen7(litstrlen((arr)), chardata), [1] = cast((arr), u64)}), str*)
-#define wdatastr(arr) cast(((u64 [2]){[0] = tolen7(litstrlen((arr)), shortdata), [1] = cast((arr), u64)}), str*)
+#define wdatastr(arr) cast(((u64 [2]){[0] = tolen7(litstrlen((arr)) - 1, shortdata), [1] = cast((arr), u64)}), str*) // -1 in len  for wide nul-terminator
 #define charstr(len, arr) cast(((u64 [2]){[0] = tolen7((len), charstack), [1] = cast((arr), u64)}), str*)
 #define shortstr(len, arr) cast(((u64 [2]){[0] = tolen7((len), shortstack), [1] = cast((arr), u64)}), str*)
 #define intstr(len, arr) cast(((u64 [2]){[0] = tolen7((len), intstack), [1] = cast((arr), u64)}), str*)

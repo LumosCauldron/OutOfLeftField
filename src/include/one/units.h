@@ -30,9 +30,9 @@ stinl u8* memto(void* destvoid, void* srcvoid, u64 len)
 	   return dest;
 	}
 
-   register u64 blocks   = len >> 3; // Hold number of 8-byte 'blocks' to copy
-   register u64 leftover = len & 0b00000111;	// Hold number of 'leftover' bytes
-   register u64 i;
+   rg u64 blocks   = len >> 3; // Hold number of 8-byte 'blocks' to copy
+   rg u64 leftover = len & 0b00000111;	// Hold number of 'leftover' bytes
+   rg u64 i;
    if (dest > src && dest < (src + len)) // If overlap
    {
 	   u64* destptr = (u64*)(dest);
@@ -81,9 +81,9 @@ void zeroarray(u8* ptr, u64 len)	// Zeros out an array
 {
    assertret(ptr, nnn bytes given to tilnul);
    
-   register u64 blocks    = len / sizeof(u64);
-   register u64 leftover  = len % sizeof(u64);
-   register u64 i;
+   rg u64 blocks    = len / sizeof(u64);
+   rg u64 leftover  = len % sizeof(u64);
+   rg u64 i;
    u64* blockptr = (u64*)(ptr);
 
    for (i = 0; i < blocks; ++i)
@@ -282,7 +282,7 @@ stinl u8 protectedstr(str* b)
    assertret0(b, nnn given to protectedstr);
    return memprotect & get7(b);
 }
-stinl u8 isemptystr(str* b) // length of 1 pointing to a nul-terminator
+stinl u8 isemptystr(str* b) // is it a str with a length of 1 pointing to a nul-terminator
 {
    assertret0(b, nnn given to isemptystr);
    return ((getlen(b) == 1) && (index(b, 0) == 0));
@@ -309,9 +309,9 @@ stinl str* appendstr(str* mainstr, str* toadd)
    }
    
    // calc lengths
-   register u64 mainlen = getlenbytes(mainstr);
-   register u64 toaddlen = getlenbytes(toadd);
-   register u64 bothlen = mainlen + toaddlen;
+   rg u64 mainlen = getlenbytes(mainstr);
+   rg u64 toaddlen = getlenbytes(toadd);
+   rg u64 bothlen = mainlen + toaddlen;
    u8* dest;
    
    // change kind if we need to morph 
@@ -345,7 +345,7 @@ stinl str* bufstr(u64 len7, void* bytes)
    str* newstr = give(sizeof(str));
    if (newstr)
    {
-      register u64 len = lenoflen7(len7);
+      rg u64 len = lenoflen7(len7);
       newstr->len7 = len7;
       if (!bytes)
       {
@@ -469,9 +469,9 @@ stinl void freestr(void* ptr)
       {
          str* b = cast(invoidptr(ptr), str*);
          
-         register u8* array = getarray(b);
-         register u8 evade = evadingstr(b);
-         register u8 kind = kindofstr(b);
+         rg u8* array = getarray(b);
+         rg u8 evade = evadingstr(b);
+         rg u8 kind = kindofstr(b);
          if (array)
          {
             // zeroize

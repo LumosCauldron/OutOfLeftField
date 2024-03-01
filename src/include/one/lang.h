@@ -28,7 +28,7 @@ void lang_mbtow(u16* unistr, u8* mbstr, u64 mblen)
     assertret(unistr, nnn given to lang_mbtow);
     assertret(mbstr, nnn given to lang_mbtow);
    
-    register u64 i;
+    rg u64 i;
     for (i = 0; i < mblen; ++i)
     {
         *(unistr + i) = cast(0x0000 | *(mbstr + i), u16);
