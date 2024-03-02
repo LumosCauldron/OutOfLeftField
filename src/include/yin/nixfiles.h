@@ -26,11 +26,11 @@
 typedef int MODE;
 
 // defs
-#define INVALID_STREAM -1
-#define UNLINK_FAILED -1
-#define MAX_FILENAME 255
-#define MAX_READBLOCK 4096
-#define ROOT_DIRSTR "/"
+#define invalid_stream -1
+#define unlink_failed -1
+#define max_filename 255
+#define max_readblock 4096
+#define root_dir_cstr "/"
 #define executemode 1
 #define writemode 2
 #define readmode 4 
@@ -51,12 +51,12 @@ stinl STREAM file_open(str* filename, MODE access)
    // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
    if (!max_path_supported)
    {
-      max_path_supported = pathconf(ROOT_DIRSTR, _PC_PATH_MAX);
+      max_path_supported = pathconf(root_dir_cstr, _PC_PATH_MAX);
    }
    
-   assertretx(filename, nnn filename in file_open, INVALID_STREAM);
+   assertretx(filename, nnn filename in file_open, invalid_stream);
    assertret0(!isemptystr(filename), empty filename in file_open);
-   assertretx(getlen(filename) <= max_path_supported, filepath longer than 'max_path_supported' in file_open, INVALID_STREAM)
+   assertretx(getlen(filename) <= max_path_supported, filepath longer than 'max_path_supported' in file_open, invalid_stream)
    // must be the same as file_destroy
    // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
    
@@ -93,7 +93,7 @@ stinl STREAM file_open(str* filename, MODE access)
       case writemode: finalflags = genflags | O_WRONLY;
                       mode = S_IWUSR; 
                       break;
-      default: assertretx(0, what mode is wanted to open the file, INVALID_STREAM);
+      default: assertretx(0, what mode is wanted to open the file, invalid_stream);
    }
    
    // actual open operation
@@ -116,10 +116,10 @@ stinl STREAM file_open(str* filename, MODE access)
    #endif
    
    // =-> if bad file descriptor 
-   asserterrnoretx(fd != INVALID_STREAM, open error: , INVALID_STREAM);
+   asserterrnoretx(fd != invalid_stream, open error: , invalid_stream);
    
    #ifdef IZANAMI
-      if (fd != INVALID_STREAM)  // same as using O_DIRECT but for OSX
+      if (fd != invalid_stream)  // same as using O_DIRECT but for OSX
       {
          fcntl(fd, F_NOCACHE, 1);
       }
@@ -169,7 +169,7 @@ stinl u8 file_destroy(str* filename)
 {
    if (!max_path_supported)
    {
-      max_path_supported = pathconf(ROOT_DIRSTR, _PC_PATH_MAX);
+      max_path_supported = pathconf(root_dir_cstr, _PC_PATH_MAX);
    }
    assertret0(filename, nnn filename in file_destroy);
    assertret0(!isemptystr(filename), empty filename in file_destroy);
@@ -190,7 +190,7 @@ stinl u8 file_destroy(str* filename)
    #endif
    
    // =-> if unlinking failed
-   assertret0(success != UNLINK_FAILED, open error: );
+   assertret0(success != unlink_failed, open error: );
    
    return 1;
 }

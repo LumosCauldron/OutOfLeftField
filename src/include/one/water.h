@@ -98,16 +98,11 @@ typedef __UINT64_TYPE__ uint64_t;
 // deadcode
 #define deadline
 //
-// directions
-#define prevd 0
-#define nextd 1
 //
 // nullptr
 #ifndef nullptr
-   #define nullptr ((void*)(0))
+#define nullptr ((void*)(0))
 #endif // nullptr
-#define nomsg nullptr
-#define nobuffer nullptr
 #define nnn NULLPTR
 //
 //

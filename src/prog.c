@@ -18,8 +18,11 @@
 #endif
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
-
-
+u64 encryptfunction_space = 49;
+u64 encryptfunction(void* stuff)
+{
+   return 0;
+}
 
 void copyfile(str* oldf, str* newf)
 {
@@ -27,15 +30,18 @@ void copyfile(str* oldf, str* newf)
    assertret(filesz, file_size returned zero);
    
    STREAM portal1 = file_open(oldf, readmode);
-   assertret(portal1 > INVALID_STREAM, file_open returned invalid stream for old file);
+   assertret(portal1 > invalid_stream, file_open returned invalid stream for old file);
    STREAM portal2 = file_open(newf, createmode);
-   assertret(portal2 > INVALID_STREAM, file_open returned invalid stream for new file);
+   assertret(portal2 > invalid_stream, file_open returned invalid stream for new file);
    
-   str* holdfile = hbuffer(INCREASE_TO_ALIGNED_AMOUNT(filesz));
-   explain(!!! File size is %lu bytes. !!!\n, filesz);
-   explain(!!! Rate for r/w is %lu bytes. !!!\n, FAST_ALIGNED_RATE);
+   str* holdfile = hbuffer(increase_to_aligned_amount(filesz));
+   explain(!!! File    size    is  %lu bytes. !!!\n, filesz);
+   explain(!!! Rate for reading is %lu bytes. !!!\n, fast_aligned_read_rate);
+   explain(!!! Rate for writing is %lu bytes. !!!\n, fast_aligned_write_rate);
    
-   if (Lamp(portal1, getarray(holdfile), filesz, nullptr, FAST_ALIGNED_RATE, t1))
+   nompkg processing_module = { encryptfunction, encryptfunction_space };
+   
+   if (readfile(portal1, getarray(holdfile), filesz, &processing_module, &portal2, fast_aligned_read_rate, direction_and_type(nextop, readop)))
    {
       sayline(Read this file successfully.);
    }
@@ -44,7 +50,7 @@ void copyfile(str* oldf, str* newf)
       sayline(Did NOT read this file successfully.);
    }
    
-   if (Light(portal2, getarray(holdfile), filesz, nullptr, FAST_ALIGNED_RATE, t1))
+   if (writefile(portal2, getarray(holdfile), filesz, fast_aligned_write_rate))
    {
       ftruncate(portal2, filesz);
       sayline(Wrote this file successfully.);
