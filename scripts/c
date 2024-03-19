@@ -84,7 +84,7 @@ lang="cc"
 compiler="undefined"
 
 # user defined
-debug="-g -D PRINTDEBUG -D NOUSESTATICINLINE"
+debug="-Ofast " #"-g -D PRINTDEBUG -D NOUSESTATICINLINE"
 warn="-Werror"
 misc="-static -ffreestanding"
 name="undefined"

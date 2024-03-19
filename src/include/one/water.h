@@ -106,9 +106,6 @@ typedef __UINT64_TYPE__ uint64_t;
 #define nnn NULLPTR
 //
 //
-// function pointer
-typedef u64 (*blackbox)(void*);
-//
 // stacks
 #define charspace(x) cast(((char [(x) + 1]){[(x)] = 0}), u8*)
 #define shortspace(x) cast(((u16 [(x) + 1]){[(x)] = 0}), u16*)
@@ -228,6 +225,11 @@ typedef u64 (*blackbox)(void*);
 #define maxhold_i64 (0x7fffffffffffffff)
 ////////////////////
 
+// FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+// function pointers
+typedef uint64_t (*blackbox)(void*);
+// FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
 // DEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUG
 #ifdef PRINTDEBUG
    u64 times_freed = 0;
@@ -236,7 +238,7 @@ typedef u64 (*blackbox)(void*);
    #define reallocPlusPlus(ptr) ((times_alloced += (!(ptr))) & 0x0000000000000000) +
    #define freedPlusPlus(x) times_freed += ((x) != 0);
    #define RETURN explain(==================\nALLOC COUNT %lu\nFREED COUNT %lu\n==================\n\n, times_alloced, times_freed); return 0
-#elif
+#else
    #define allocPlusPlus(x) 
    #define reallocPlusPlus(ptr) 
    #define freedPlusPlus(x) 

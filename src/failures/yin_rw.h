@@ -27,8 +27,8 @@ typedef struct
 typedef struct 
 {
    str* data;
-   u8 state;
-   u8 mode;
+   u8 state;  // on or off
+   u8 mode; // read forward or backward
 } pacmem;
 
 // defs
@@ -47,7 +47,7 @@ typedef struct
 #define prevop 0b00000000
 #define isread(x) (0b00000001 & (u8)(x))
 #define isnext(x) (0b00000010 & (u8)(x))
-#define direction_and_type(dir, type) ((dir << 1) | type)
+#define direction_and_type(dir, type) (dir | type)
 #define pacman_read_forward (nextop | readop)
 #define pacman_read_backward (prevop | readop)
 #define pacman_active 1
@@ -112,20 +112,36 @@ stinl i64 Oil(STREAM portal, void* dest, u64 quantity, u32 quota, u8 dt)
    // do not change signs
    rg i64 amount = 0;
    rg i64 iamount = 0;
+   rg i64 position = lseek(portal, 0, SEEK_CUR); 
+         
+   // program/debug error check
+   asserterrnoretx(position > lseek_failed, 
+                   \nposix lseek error at beginning of Oil, 
+                   lseek_failed);
+                   
+   rg u8 writeflag = (!isread(dt));
+   rg u8 backwardsflag = (!isnext(dt));
    do
    {
       explain(%s%lu\n, "reading at rate of ", quota);
-      if (!isread(dt)) // writing
+      if (writeflag) // writing
       {
          iamount = write(portal, dest + amount, quota);
          amount += iamount;
       }
       else // reading
       {
-         // guaranteed to never go negative file beginning
-         if (!isnext(dt)) // reading backwards
+         
+         if (backwardsflag) // reading backwards
          {
-            lseek(portal, -(quota + iamount), SEEK_CUR); 
+            // guaranteed to never go negative file beginning
+            rg i64 backwards_offset = quota + iamount; // will be aligned
+            if (position < backwards_offset)
+            {
+               backwards_offset = position;
+            }
+            // this if clause assumes 
+            position = lseek(portal, -(backwards_offset), SEEK_CUR); 
          
             // program/debug error check
             asserterrnoretx(position > lseek_failed, 
@@ -163,7 +179,7 @@ stinl i64 Oil(STREAM portal, void* dest, u64 quantity, u32 quota, u8 dt)
                rg i64 goback = cast(quantity, i64) - amount; 
                
                // guaranteed to never go negative file beginning
-               rg i64 position = lseek(portal, goback, SEEK_CUR); 
+               position = lseek(portal, goback, SEEK_CUR); 
                
                // program/debug error check
                asserterrnoretx(position > lseek_failed, 
@@ -209,26 +225,28 @@ stinl i64 Oil(STREAM portal, void* dest, u64 quantity, u32 quota, u8 dt)
 // _______________________________________________________
 // consume (single thread only!)
 //       assumes data, pkg, pacman are all valid
+//       this function and 'readfile' are married, don't
+//          use for any other function
 // _______________________________________________________
 
 stinl u64 consume(str* data, nompkg* pkg, void* toolbox, pacmem* pacman, u8 is_it_the_last_bite)
 {
    rg u64 leftovers;
    
-   if (pacman->state) // is on
+   if (pacman->state == pacman_active) // is on
    {
       if (pacman->mode == pacman_read_backward)
       {
          // retrieve leftovers in pacman and append (the end will processed first)
+         // data has already space for pacman data allocated in caller function 'readfile'
          rg u64 pacman_data_len = getlen(pacman->data);
-         memto(data->array + getlen(data), pacman->data->array, pacman_data_len);
-         incrlen(data, pacman_data_len);
-         pacman->state = 0; // pacman state to off
+         memto(data->array + (getlen(data) - pacman_data_len), pacman->data->array, pacman_data_len);
+         pacman->state = pacman_not_active; // pacman state to off
       }
    }
    
    nomtools food = { toolbox, data, is_it_the_last_bite };
-   leftovers = nom(&food);
+   leftovers = pkg->nom(&food);
    
    if (!leftovers)
    {
@@ -240,14 +258,14 @@ stinl u64 consume(str* data, nompkg* pkg, void* toolbox, pacmem* pacman, u8 is_i
       {
          case pacman_read_forward : ; // put leftovers at beginning and return dest offset in read/writefile functions
                                     rg u64 where_left_off = getlen(data) - leftovers;
-                                    memto(data->array, data->array + where_left_off, leftovers);
+                                    memto(data->array - leftovers, data->array + where_left_off, leftovers);
                                     return leftovers;
               break;
-         case pacman_read_backward : ; // save leftovers at the beginning of data in pacman data
+         case pacman_read_backward : ; // save leftovers to the beginning of data space pointed to by pacman data
                                      memto(pacman->data->array, data->array, leftovers);  // pacman data array
                                      setlen(pacman->data, leftovers); // pacman data len
-                                     pacman->state = 1; // pacman state to on
-                                     return 0;
+                                     pacman->state = pacman_active; // pacman state to on
+                                     return leftovers;
               break;
          default : ; // do nothing
                    return 0;
@@ -258,13 +276,14 @@ stinl u64 consume(str* data, nompkg* pkg, void* toolbox, pacmem* pacman, u8 is_i
 // _______________________________________________________
 // readfile
 //     'amount' MUST be SIGNED and 64 bits long
-//
+//      this function and 'consume' are married, don't
+//         use for any other function
 // _______________________________________________________
 stinl u8 readfile(STREAM portal, void* destptr, u64 quantity, nompkg* pkg, void* toolbox, u32 quota, u8 dirntype)
 {
    sayline(~~~~~~~~~~~~~~~~~~);
    assertret0(portal >= 0, bad portal in readfile);
-   assertret0(dest, nnn dest in readfile);
+   assertret0(destptr, nnn dest in readfile);
    assertret0(quantity, asking to read zero bytes in readfile);
    
    // set dest (can be in register because its never dereferenced)
@@ -304,7 +323,9 @@ stinl u8 readfile(STREAM portal, void* destptr, u64 quantity, nompkg* pkg, void*
       pacspace = pkg->nom_space;
    }
    
-   pacmem pacman = { charspace(pacspace), pacman_not_active, dirntype }; // start here
+   // declare array and nul-terminate
+   char cstr[pacspace + 1]; *(cstr + pacspace) = 0;
+   pacmem pacman = { charstr(pacspace, cstr), pacman_not_active, dirntype };
    
    // read and process each quota of bytes
    do
@@ -320,7 +341,7 @@ stinl u8 readfile(STREAM portal, void* destptr, u64 quantity, nompkg* pkg, void*
       // !!! ACTUAL READ FUNCTION !!!
       // ensures that quota is met OR amount smaller than quota is read
       amt = 0; // update 'amt' for next write
-      amt += Oil(portal, dest, cast(amount, u64), quota - leftover, dirntype);
+      amt += Oil(portal, dest, cast(amount, u64), quota, dirntype);
       assertret0(amt > read_failed, \nposix read error );
       assertret0(amt == quota || (amt == amount && amount < quota), \nwe are not able to read any more bytes);
       
@@ -331,12 +352,13 @@ stinl u8 readfile(STREAM portal, void* destptr, u64 quantity, nompkg* pkg, void*
       {
          // update amount left to read (do it before to pass end condition to nom through pacman)
          amount -= amt;
-         dest = cast(destptr, u8*); // reset here (don't move this)
-         rg str* temp = charstr(dest, amt + leftover);
          if (isnext(dirntype))
-         { // push dest up so it does not overwrite leftovers set to beginning by consume function
-           dest += (leftover = consume(temp, pkg, toolbox, pacman, (amount > 0)));
+         {
+            dest -= leftover;
          }
+         rg str* temp = charstr(amt + leftover, dest);
+         dest = cast(destptr, u8*); // reset here (don't move this)
+         leftover = consume(temp, pkg, toolbox, &pacman, (amount > 0));
       }
       else
       {  // only increment 'dest' if we haven't dealt with the read in data yet
@@ -406,7 +428,7 @@ stinl u8 writefile(STREAM portal, void* dest, u64 quantity, u32 quota)
       assertret0(amt == quota || (amt == amount && amount < quota), \nwe are not able to write any more bytes);
       
       dest = cast(cast(dest, u8*) + amt, void*);
-      
+       
       // decrease amount we still need to write
       amount -= amt;
    } while (amount > 0);
