@@ -77,7 +77,7 @@ stinl u64 tilnul(void* bytes)
    }
    return count;
 }
-void zeroarray(u8* ptr, u64 len)	// Zeros out an array
+stinl void zeroarray_units(u8* ptr, u64 len)	// Zeros out an array
 {
    assertret(ptr, nnn bytes given to tilnul);
    
@@ -339,7 +339,7 @@ stinl str* appendstr(str* mainstr, str* toadd)
    return mainstr;
 }
 
-// all bufstrs need to be freed
+// all bufstrs need to be freed (do not pass in literal strings)
 stinl str* bufstr(u64 len7, void* bytes)
 {
    str* newstr = give(sizeof(str));

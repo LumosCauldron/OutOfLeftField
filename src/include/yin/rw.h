@@ -3,6 +3,7 @@
 
 // our libs
 #include "../one/water.h"
+#include "../one/crypto/cipher7.h"
 #include "../one/units.h"
 
 // their libs
@@ -12,7 +13,7 @@
 typedef i64 STREAM;
 
 // defs
-#define fast_aligned_rate (0b01100001100111000010000000000000) // 2568mbs per read
+#define fast_aligned_rate (0b01100001100111000010000000000000 * ) // 2568mbs per read
 #define stupidfast_aligned_rate (0b01111111111111111111111111111111)
 
 #define ALIGNED_RATE fast_aligned_rate // aligned rate (don't change)
@@ -21,12 +22,27 @@ typedef i64 STREAM;
 #define read_failed -1
 #define write_failed -1
 
-#define FILEMODE 1
-#define SOCKETMODE 0
-u8 writemode = FILEMODE;
+#define LASTWRITE 1
+#define NOLASTWRITE 0
 
-stinl u8 writeit(STREAM out, void* data)
+/*
+CryptoGemStone gem1;
+cryptokey(testKey1->array, &gem1);
+encryptstr(field1->array, getlen(field1), &gem1);
+decryptstr(field1->array, getlen(field1), &gem1);
+*/
+
+stinl u8 writeit(STREAM out, void* data, u8 lastone)
 {
+   if (lastone)
+   {
+      // start here...
+   }
+   else
+   {
+      
+   }
+   
    asserterrnoret0(write(out, data, ALIGNED_RATE) != write_failed, write);
    return 1;
 }
@@ -42,14 +58,14 @@ stinl u8 readit(STREAM in, u64 amt, STREAM out)
    while (times)
    {
       asserterrnoret0(read(in, data, ALIGNED_RATE) != read_failed, read);
-      assertret0(writeit(out, data) != 0, a write failed in readit);
+      assertret0(writeit(out, data, NOLASTWRITE) != 0, a write failed in readit);
       --times;
    }
    
    if (remainder)
    {
          asserterrnoret0(read(in, data, ALIGNED_RATE) != read_failed, read);
-         assertret0(writeit(out, data) != 0, a write failed in readit);
+         assertret0(writeit(out, data, LASTWRITE) != 0, a write failed in readit);
          ftruncate(out, amt); // correct the new file size
    }
    return 1;
