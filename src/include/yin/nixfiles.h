@@ -29,7 +29,6 @@ typedef int MODE;
 #define invalid_stream -1
 #define unlink_failed -1
 #define max_filename 255
-#define max_readblock 4096
 #define root_dir_cstr "/"
 #define executemode 1
 #define writemode 2
