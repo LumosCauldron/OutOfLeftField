@@ -24,7 +24,7 @@ stinl u8* memto(void* destvoid, void* srcvoid, u64 len)
 {
    #define dest (cast(destvoid, u8*))
    #define src (cast(srcvoid, u8*))
-   assertret0(dest, "nnn dest given to memto");
+   ar0(dest, "nnn dest given to memto");
    if (!len || !src || dest == src)
    {
 	   return dest;
@@ -65,7 +65,7 @@ stinl u8* memto(void* destvoid, void* srcvoid, u64 len)
 }
 stinl u64 tilnul(void* bytes)
 {
-   assertret0(bytes, nnn bytes given to tilnul);
+   ar0(bytes, nnn bytes given to tilnul);
    
    rg u64 count = 0;
    rg u8* original = cast(bytes, u8*);
@@ -79,7 +79,7 @@ stinl u64 tilnul(void* bytes)
 }
 stinl void zeroarray_units(u8* ptr, u64 len)	// Zeros out an array
 {
-   assertret(ptr, nnn bytes given to tilnul);
+   ar(ptr, nnn bytes given to tilnul);
    
    rg u64 blocks    = len / sizeof(u64);
    rg u64 leftover  = len % sizeof(u64);
@@ -105,75 +105,75 @@ stinl u64 tolen7(u64 len, u8 b7)
 
 stinl void set7(str* b, u8 b7)
 {
-   assertret(b, nnn given to set7);
+   ar(b, nnn given to set7);
    b->len7 = tolen7(b->len7, b7);
 }
 
 stinl void setevade(str* b, u8 e)
 {
-   assertret(b, nnn given to setevade);
+   ar(b, nnn given to setevade);
    set7(b, (get7(b) & clearevade) | memevade & e);
 }
 
 stinl void setkind(str* b, u8 k)
 {
-   assertret(b, nnn given to setkind);
+   ar(b, nnn given to setkind);
    set7(b, (get7(b) & clearkind) | memkind & k);
 }
 
 stinl void setprotect(str* b, u8 p)
 {
-   assertret(b, nnn given to setprotect);
+   ar(b, nnn given to setprotect);
    set7(b, (get7(b) & clearprotect) | memprotect & p);
 }
 
 stinl void settype(str* b, u8 t)
 {
-   assertret(b, nnn given to settype);
+   ar(b, nnn given to settype);
    set7(b, (get7(b) & cleartype) | memtype & t);
 }
 
 stinl void setlen(str* b, u64 len)
 {
-   assertret(b, nnn given to setlen);
+   ar(b, nnn given to setlen);
    b->len7 = (b->len7 & 0xff00000000000000) | (0x00ffffffffffffff & len);
 }
 
 stinl void incrlen(str* b, u64 amt)
 {
-   assertret(b, nnn given to incrlen);
+   ar(b, nnn given to incrlen);
    b->len7 = (b->len7 & 0xff00000000000000) | (0x00ffffffffffffff & (b->len7 + amt));
 }
 
 stinl void decrlen(str* b, u64 amt)
 {
-   assertret(b, nnn given to decrlen);
+   ar(b, nnn given to decrlen);
    b->len7 = (b->len7 & 0xff00000000000000) | (0x00ffffffffffffff & (b->len7 - amt));
 }
 
 stinl void setlen7(str* b, u64 len7)
 {
-   assertret(b, nnn given to setlen7);
+   ar(b, nnn given to setlen7);
    b->len7 = len7;
 }
 
 stinl void setarray(str* b, void* array)
 {
-   assertret(b, nnn given to setarray);
+   ar(b, nnn given to setarray);
    b->array = array;
 }
 
 stinl void setarraylen7(str* b, void* array, u64 len, u8 b7)
 {
-   assertret(b, nnn given to setarraylen7);
+   ar(b, nnn given to setarraylen7);
    setarray(b, array);
    setlen7(b, tolen7(len, b7));
 }
 
 stinl void setstr(str* src, str* dest)
 {
-   assertret(src, nnn src given to setstr);
-   assertret(dest, nnn dest given to setstr);
+   ar(src, nnn src given to setstr);
+   ar(dest, nnn dest given to setstr);
    dest->array = src->array;
    dest->len7 = src->len7;
 }
@@ -182,31 +182,31 @@ stinl void setstr(str* src, str* dest)
 // gets
 stinl u8 get7(str* b)
 {
-   assertret0(b, nnn given to get7);
+   ar0(b, nnn given to get7);
    return (b->len7 & 0xff00000000000000) >> 56;
 }
 
 stinl u8 getevade(str* b)
 {
-   assertret0(b, nnn given to getevade);
+   ar0(b, nnn given to getevade);
    return get7(b) & memevade;
 }
 
 stinl u8 getkind(str* b)
 {
-   assertret0(b, nnn given to getkind);
+   ar0(b, nnn given to getkind);
    return get7(b) & memkind;
 }
 
 stinl u8 getprotect(str* b)
 {
-   assertret0(b, nnn given to getprotect);
+   ar0(b, nnn given to getprotect);
    return get7(b) & memprotect;
 }
 
 stinl u8 gettype(str* b)
 {
-   assertret0(b, nnn given to gettype);
+   ar0(b, nnn given to gettype);
    return get7(b) & memtype;
 }
 
@@ -217,8 +217,8 @@ stinl u64 lenoflen7(u64 len7)
 
 stinl u64 index(str* b, u64 i)
 {
-   assertret0(b, nnn given to index);
-   assertret0(i < getlen(b), index i is larger than str length); // return 0
+   ar0(b, nnn given to index);
+   ar0(i < getlen(b), index i is larger than str length); // return 0
    
    switch (typeofstr(b))
    {
@@ -232,13 +232,13 @@ stinl u64 index(str* b, u64 i)
 
 stinl u64 getlen(str* b)
 {
-   assertret0(b, nnn given to getlen);
+   ar0(b, nnn given to getlen);
    return 0x00ffffffffffffff & b->len7;
 }
 
 stinl u64 getlenbytes(str* b)
 {
-   assertret0(b, nnn given to getlenbytes);
+   ar0(b, nnn given to getlenbytes);
    switch (typeofstr(b))
    {
       case t1 : return (0x00ffffffffffffff & b->len7);
@@ -251,40 +251,40 @@ stinl u64 getlenbytes(str* b)
 
 stinl u64 getlen7(str* b)
 {
-   assertret0(b, nnn given to getlen7);
+   ar0(b, nnn given to getlen7);
    return b->len7;
 }
 
 stinl u8* getarray(str* b)
 {
-   assertret0(b, nnn given to getarray);
+   ar0(b, nnn given to getarray);
    return cast(b->array, u8*);
 }
 
 // get attributes
 stinl u8 typeofstr(str* b)
 {
-   assertret0(b, nnn given to typeofstr);
+   ar0(b, nnn given to typeofstr);
    return memtype & get7(b);
 }
 stinl u8 kindofstr(str* b)
 {
-   assertret0(b, nnn given to kindofstr);
+   ar0(b, nnn given to kindofstr);
    return memkind & get7(b);
 }
 stinl u8 evadingstr(str* b)
 {
-   assertret0(b, nnn given to evadingstr);
+   ar0(b, nnn given to evadingstr);
    return memevade & get7(b);
 }
 stinl u8 protectedstr(str* b)
 {
-   assertret0(b, nnn given to protectedstr);
+   ar0(b, nnn given to protectedstr);
    return memprotect & get7(b);
 }
 stinl u8 isemptystr(str* b) // is it a str with a length of 1 pointing to a nul-terminator
 {
-   assertret0(b, nnn given to isemptystr);
+   ar0(b, nnn given to isemptystr);
    return ((getlen(b) == 1) && (index(b, 0) == 0));
 }
 
@@ -293,7 +293,7 @@ stinl u8 isemptystr(str* b) // is it a str with a length of 1 pointing to a nul-
 // all appends need to be freed
 stinl str* appendstr(str* mainstr, str* toadd)
 {
-   assertretx(mainstr || toadd, nnn mainstr and nnn toadd given to appendstr, mainstr);
+   arx(mainstr || toadd, nnn mainstr and nnn toadd given to appendstr, mainstr);
    if (!mainstr && !toadd)
    {
       return nullptr;
@@ -378,9 +378,9 @@ stinl str* bufstr(u64 len7, void* bytes)
 
 stinl str* cpystr(str* src, str* dest)
 {
-   assertret0(src, nnn src given to cpystr);
-   assertret0(dest, nnn dest given to cpystr);
-   assertret0(getlenbytes(dest) >= getlenbytes(src), dest must have enough memory to store data from src);
+   ar0(src, nnn src given to cpystr);
+   ar0(dest, nnn dest given to cpystr);
+   ar0(getlenbytes(dest) >= getlenbytes(src), dest must have enough memory to store data from src);
    
    rg u64 srclen = getlenbytes(src);
    rg u64 srcblks = srclen >> 3; // div 8
@@ -423,8 +423,8 @@ stinl str* cpystr(str* src, str* dest)
 
 stinl u8 eqstr(str* src, str* dest)
 {
-   assertret0(src, nnn src given to eqstr);
-   assertret0(dest, nnn dest given to eqstr);
+   ar0(src, nnn src given to eqstr);
+   ar0(dest, nnn dest given to eqstr);
    
    rg u64 destlen = getlenbytes(dest);
    rg u64 srclen = getlenbytes(src);
@@ -508,7 +508,7 @@ stinl void freestr(void* ptr)
 
 stinl str* initstr(str* b, u8 c)
 {
-   assertret0(b, nnn b given to initstr);
+   ar0(b, nnn b given to initstr);
    
    rg u64 c64 = 0;
    if (c)
@@ -545,8 +545,8 @@ stinl str* initstr(str* b, u8 c)
 
 stinl str* xorstr(str* src, str* dest)
 {
-   assertret0(src, nnn src given to xorstr);
-   assertret0(dest, nnn dest given to xorstr);
+   ar0(src, nnn src given to xorstr);
+   ar0(dest, nnn dest given to xorstr);
    
    rg u64 srclen = getlenbytes(src);
    rg u64 srcblks = srclen >> 3; // div 8

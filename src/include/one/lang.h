@@ -25,8 +25,8 @@ typedef struct ansiStrA dumbStrA;
 // multibyte to utf16
 void lang_mbtow(u16* unistr, u8* mbstr, u64 mblen)
 {
-    assertret(unistr, nnn given to lang_mbtow);
-    assertret(mbstr, nnn given to lang_mbtow);
+    ar(unistr, nnn given to lang_mbtow);
+    ar(mbstr, nnn given to lang_mbtow);
    
     rg u64 i;
     for (i = 0; i < mblen; ++i)

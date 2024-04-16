@@ -48,21 +48,21 @@ typedef __UINT64_TYPE__ uint64_t;
 
 // debugging ********************************************************
 #ifdef PRINTDEBUG
-   #define assertret(expr, msg) if (!(expr)) { sayline(msg); return; }
-   #define assertret0(expr, msg) if (!(expr)) { sayline(msg); return 0; }
-   #define assertretx(expr, msg, x) if (!(expr)) { sayline(msg); return (x); }
+   #define ar(expr, msg) if (!(expr)) { sayline(msg); return; }
+   #define ar0(expr, msg) if (!(expr)) { sayline(msg); return 0; }
+   #define arx(expr, msg, x) if (!(expr)) { sayline(msg); return (x); }
    
    #include <errno.h>
-   #define asserterrno(expr, msg) if (!(expr)) { perror(#msg); return; }
-   #define asserterrnoret0(expr, msg) if (!(expr)) { perror(#msg); return 0; }
-   #define asserterrnoretx(expr, msg, x) if (!(expr)) { perror(#msg); return (x); }
+   #define ae(expr, msg) if (!(expr)) { perror(#msg); return; }
+   #define aer0(expr, msg) if (!(expr)) { perror(#msg); return 0; }
+   #define aerx(expr, msg, x) if (!(expr)) { perror(#msg); return (x); }
 #else
-   #define assertret(expr, msg) if (!(expr)) { return; }
-   #define assertret0(expr, msg) if (!(expr)) { return 0; }
-   #define assertretx(expr, msg, x) if (!(expr)) { return (x); }
-   #define asserterrno(expr, msg) if (!(expr)) { return; }
-   #define asserterrnoret0(expr, msg) if (!(expr)) { return 0; }
-   #define asserterrnoretx(expr, msg, x) if (!(expr)) { return (x); }
+   #define ar(expr, msg) if (!(expr)) { return; }
+   #define ar0(expr, msg) if (!(expr)) { return 0; }
+   #define arx(expr, msg, x) if (!(expr)) { return (x); }
+   #define ae(expr, msg) if (!(expr)) { return; }
+   #define aer0(expr, msg) if (!(expr)) { return 0; }
+   #define aerx(expr, msg, x) if (!(expr)) { return (x); }
 #endif
 // ******************************************************************
 

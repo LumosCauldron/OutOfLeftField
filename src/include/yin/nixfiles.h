@@ -24,6 +24,7 @@
 
 // types
 typedef int MODE;
+typedef i64 STREAM;
 
 // defs
 #define invalid_stream -1
@@ -36,6 +37,16 @@ typedef int MODE;
 #define readwrite 6
 #define specialmode 7
 #define createmode 8
+
+#define disk_block_size 4096
+#define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read
+#define rwDBS disk_block_size
+#define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
+
+#define lseek_failed -1
+#define read_failed -1
+#define stat_failed -1
+#define write_failed -1
 
 // globals
 u64 max_path_supported = 0;
@@ -53,9 +64,9 @@ stinl STREAM file_open(str* filename, MODE access)
       max_path_supported = pathconf(root_dir_cstr, _PC_PATH_MAX);
    }
    
-   assertretx(filename, nnn filename in file_open, invalid_stream);
-   assertret0(!isemptystr(filename), empty filename in file_open);
-   assertretx(getlen(filename) <= max_path_supported, filepath longer than 'max_path_supported' in file_open, invalid_stream)
+   arx(filename, nnn filename in file_open, invalid_stream);
+   ar0(!isemptystr(filename), empty filename in file_open);
+   arx(getlen(filename) <= max_path_supported, filepath longer than 'max_path_supported' in file_open, invalid_stream)
    // must be the same as file_destroy
    // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
    
@@ -92,7 +103,7 @@ stinl STREAM file_open(str* filename, MODE access)
       case writemode: finalflags = genflags | O_WRONLY;
                       mode = S_IWUSR; 
                       break;
-      default: assertretx(0, what mode is wanted to open the file, invalid_stream);
+      default: arx(0, what mode is wanted to open the file, invalid_stream);
    }
    
    // actual open operation
@@ -115,7 +126,7 @@ stinl STREAM file_open(str* filename, MODE access)
    #endif
    
    // =-> if bad file descriptor 
-   asserterrnoretx(fd != invalid_stream, open error: , invalid_stream);
+   aerx(fd != invalid_stream, open error: , invalid_stream);
    
    #ifdef IZANAMI
       if (fd != invalid_stream)  // same as using O_DIRECT but for OSX
@@ -132,7 +143,7 @@ stinl STREAM file_open(str* filename, MODE access)
 // _______________________________________________________
 stinl void file_close(STREAM stream)
 {
-   assertret(stream >= 0, stream is less than zero in file_close... not closing this);
+   ar(stream >= 0, stream is less than zero in file_close... not closing this);
    
    if (stream >= 0)
    {
@@ -145,7 +156,7 @@ stinl void file_close(STREAM stream)
 // _______________________________________________________
 u8 file_exists(str* filename)
 {
-   assertret0(filename, nnn filename given to file_exists); 
+   ar0(filename, nnn filename given to file_exists); 
    struct stat info;
    return (stat(getarray(filename), &info) == 0);
 }
@@ -155,9 +166,9 @@ u8 file_exists(str* filename)
 // _______________________________________________________
 u64 file_size(str* filename)
 {
-   assertret0(filename, nnn filename given to file_size); 
+   ar0(filename, nnn filename given to file_size); 
    struct stat info;
-   stat(getarray(filename), &info);
+   ar0(stat(getarray(filename), &info) != stat_failed, stat failed);
    return info.st_size;
 }
 // _______________________________________________________
@@ -170,9 +181,9 @@ stinl u8 file_destroy(str* filename)
    {
       max_path_supported = pathconf(root_dir_cstr, _PC_PATH_MAX);
    }
-   assertret0(filename, nnn filename in file_destroy);
-   assertret0(!isemptystr(filename), empty filename in file_destroy);
-   assertret0(getlen(filename) <= max_path_supported, filepath longer than 'max_path_supported' in file_destroy)
+   ar0(filename, nnn filename in file_destroy);
+   ar0(!isemptystr(filename), empty filename in file_destroy);
+   ar0(getlen(filename) <= max_path_supported, filepath longer than 'max_path_supported' in file_destroy)
 
    // =-> add support for file overwriting
    // =-> if (paranoid)
@@ -189,7 +200,7 @@ stinl u8 file_destroy(str* filename)
    #endif
    
    // =-> if unlinking failed
-   assertret0(success != unlink_failed, open error: );
+   ar0(success != unlink_failed, open error: );
    
    return 1;
 }
