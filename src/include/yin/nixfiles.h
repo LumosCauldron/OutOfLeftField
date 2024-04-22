@@ -27,8 +27,6 @@ typedef int MODE;
 typedef i64 STREAM;
 
 // defs
-#define invalid_stream -1
-#define unlink_failed -1
 #define max_filename 255
 #define root_dir_cstr "/"
 #define executemode 1
@@ -43,10 +41,12 @@ typedef i64 STREAM;
 #define rwDBS disk_block_size
 #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
 
+#define invalid_stream -1
 #define lseek_failed -1
 #define read_failed -1
 #define stat_failed -1
 #define write_failed -1
+#define unlink_failed -1
 
 // globals
 u64 max_path_supported = 0;
