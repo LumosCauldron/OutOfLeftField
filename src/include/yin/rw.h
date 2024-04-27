@@ -65,8 +65,8 @@ stinl u8 read_backward(STREAM in, u64 amt, STREAM out, CryptoGemStone* gem)
    str* s = hbuffer(readrate); 
    rg u8* data = s->array;
    rg u64 times = (amt / readrate); 
+   rg i64 backup = -(readrate << 1); // keep a signed integer
    rg u16 remainder = amt % readrate;
-   rg u8 firsttime = 1;
    
 
    // calibrate first read (its ok if remainder is 0)
@@ -82,14 +82,13 @@ stinl u8 read_backward(STREAM in, u64 amt, STREAM out, CryptoGemStone* gem)
    }
          
    do
-   { // first time, and double reposition is off...fix this)
+   {
       aer0(read(in, data, readrate) != read_failed, read);
       if (gem)
       {
-         if (firsttime)
+         if (remainder)
          {
             decryptstr(data, remainder, gem);
-            firsttime = 0;
          }
          else
          {
@@ -97,14 +96,32 @@ stinl u8 read_backward(STREAM in, u64 amt, STREAM out, CryptoGemStone* gem)
          }
       }
       aer0(write(out, data, readrate) != write_failed, write);
-      if (times < 2) // meets 2 conditions: when only remainder exists OR last time
+      // meets 2 conditions: when only remainder exists OR last time
+      // this if-statement is the wall to make sure lseek doesn't place us before file
+      if (times < 2) 
       {
-         break;
+         // we just did the remainder so go around one more time if 'times' == 1
+         if (!remainder || !times)
+         {
+            break; // jump out of while(1)
+         }
       }
-      aer0(lseek(in, -(readrate << 1), SEEK_CUR) != lseek_failed, lseek);
-      aer0(lseek(out, -(readrate << 1), SEEK_CUR) != lseek_failed, lseek);
+      
+      // go back the correct amount of bytes based off what we read
+      if (remainder)
+      {              // backup is a negative integer
+         aer0(lseek(in, backup + cast(readrate - remainder, i64), SEEK_CUR) != lseek_failed, lseek);
+      }
+      else
+      {
+         aer0(lseek(in, backup, SEEK_CUR) != lseek_failed, lseek);
+      }
+      aer0(lseek(out, backup, SEEK_CUR) != lseek_failed, lseek);
+      
+      // "turn off" the remainder
+      remainder = 0;
       --times;
-   } while (times);
+   } while (1);
    
    freestr(&s);
    return 1;
