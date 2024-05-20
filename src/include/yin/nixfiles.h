@@ -26,9 +26,9 @@
 typedef int MODE;
 typedef i64 STREAM;
 
-// defs
-#define max_filename 255
-#define root_dir_cstr "/"
+// modes/misc
+#define maxname 255 // misc
+#define slashstr "/" // misc
 #define executemode 1
 #define writemode 2
 #define readmode 4 
@@ -36,8 +36,13 @@ typedef i64 STREAM;
 #define specialmode 7
 #define createmode 8
 
+// read/write speed
 #define disk_block_size 4096
-#define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read
+#ifndef SMALLBOY
+   #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read (hardcoded max speed)
+#else
+   #define fast_aligned_rate (disk_block_size) // ~4kbs per read (hardcoded max speed)
+#endif
 #define rwDBS disk_block_size
 #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
 
@@ -61,7 +66,7 @@ stinl STREAM file_open(str* filename, MODE access)
    // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
    if (!max_path_supported)
    {
-      max_path_supported = pathconf(root_dir_cstr, _PC_PATH_MAX);
+      max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
    }
    
    arx(filename, nnn filename in file_open, invalid_stream);
@@ -179,7 +184,7 @@ stinl u8 file_destroy(str* filename)
 {
    if (!max_path_supported)
    {
-      max_path_supported = pathconf(root_dir_cstr, _PC_PATH_MAX);
+      max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
    }
    ar0(filename, nnn filename in file_destroy);
    ar0(!isemptystr(filename), empty filename in file_destroy);
