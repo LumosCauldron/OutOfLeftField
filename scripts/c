@@ -84,7 +84,9 @@ lang="cc"
 compiler="undefined"
 
 # user defined
-debug="-Ofast " #"-g -D PRINTDEBUG -D NOUSESTATICINLINE"
+debug="-g -D PRINTDEBUG -D NOUSESTATICINLINE"
+#debug="-Ofast "
+libs="$@"
 warn="-Werror"
 misc="-static -ffreestanding"
 name="undefined"
@@ -114,14 +116,14 @@ then
    fi
    
    # compile for unix
-   $compiler $debug $warn $yincode $misc "$codepath" -o "$name"
+   echo "[><]  |"
+   echo "[><]  |  $compiler $debug $warn $yincode $misc ${codepath} -o ${name} $libs" 
+   echo "[><]  |"
+   $compiler $debug $warn $yincode $misc "$codepath" -o "$name" $libs
    if [ ! "$?" = 0 ]
    then 
       exit
    fi
-   echo "[><]  |"
-   echo "[><]  |  $compiler $debug $warn $yincode $misc ${codepath} -o ${name}"
-   echo "[><]  |"
    
    mv "$name" "$yindir"
    storage=$(ls -al "${yindir}/${name}")
@@ -154,14 +156,14 @@ then
    fi
    
    # compile for windows
-   $compiler $debug $warn $yangcode $misc "$codepath" -o "$name"
+   echo "[><]  |"
+   echo "[><]  |  $compiler $debug $warn $yangcode $misc ${codepath} -o ${name} $libs" 
+   echo "[><]  |"
+   $compiler $debug $warn $yangcode $misc "$codepath" -o "$name" $libs
    if [ ! "$?" = 0 ]
    then 
       exit
    fi
-   echo "[><]  |"
-   echo "[><]  |  $compiler $debug $warn $yangcode $misc ${codepath} -o ${name}"
-   echo "[><]  |"
    
    mv "$name" "$yangdir"
    storage=$(ls -al "${yangdir}/${name}")

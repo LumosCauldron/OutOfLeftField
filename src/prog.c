@@ -27,7 +27,7 @@ void encryptfile(str* oldf, str* newf, CryptoGemStone* gem)
    STREAM out = file_open(newf, createmode);
    
    ftruncate(out, filesz); // get harddisk space mapped out
-   if (read_forward(in, filesz, out, gem))
+   if (readfilef(in, filesz, out, gem))
    {  // truncate to the correct size
       ftruncate(out, filesz); 
       sayline(Read this file successfully.);
@@ -50,7 +50,7 @@ void decryptfile(str* oldf, str* newf, CryptoGemStone* gem)
    STREAM out = file_open(newf, createmode);
    
    ftruncate(out, filesz); // get harddisk space mapped out
-   if (read_backward(in, filesz, out, gem))
+   if (readfileb(in, filesz, out, gem))
    {  // truncate to the correct size
       ftruncate(out, filesz); 
       sayline(Read this file successfully.);
