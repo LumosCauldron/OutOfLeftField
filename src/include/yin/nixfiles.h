@@ -1,22 +1,19 @@
 #ifndef FILES_H
 #define FILES_H
 
+#define _GNU_SOURCE // for other 'O_' file io options
+#define _FILE_OFFSET_BITS 64 // for O_LARGEFILE file io option
+
 // notes: 
 // 1. improve =-> (void) __sseek((void *)fp, (0fpos_t)0, SEEK_END); maybe for O_APPEND functionality?
 // 2. improve =-> give ability to change directories to avoid maximum supported path errors
 
 // compatibility 
 #ifndef O_DIRECT
-   #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probable compiling for Mac OSX)
+   #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probably compiling for Mac OSX)
 #endif
 
-// our libs
-#include "../one/water.h"
-#include "../one/lang.h"
-#include "../one/units.h"
-#include "rw.h"
-
-// their libs
+// unix libs
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -38,7 +35,7 @@ typedef i64 STREAM;
 
 // read/write speed
 #define disk_block_size 4096
-#ifndef SMALLBOY
+#ifndef EMBEDDED_MODE
    #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read (hardcoded max speed)
 #else
    #define fast_aligned_rate (disk_block_size) // ~4kbs per read (hardcoded max speed)
@@ -80,14 +77,14 @@ stinl STREAM file_open(str* filename, MODE access)
    // =-> don't update date
    // =-> symlinks don't count
    // =-> ensure data don't care about metadata
-   register int genflags = O_LARGEFILE | O_NOATIME  | 
+   int genflags = O_LARGEFILE | O_NOATIME  | 
                           O_NOFOLLOW | O_DSYNC | O_DIRECT;
    
    // =-> when creating/createmode: replace already existing, write only then add the above
-   register int finalflags = O_CREAT | O_WRONLY | 
+   int finalflags = O_CREAT | O_WRONLY | 
                            O_TRUNC | genflags;
                           
-   register int mode = S_ISVTX | S_IRWXU;
+   int mode = S_ISVTX | S_IRWXU;
    switch (access)
    {
       case createmode: 
@@ -112,7 +109,7 @@ stinl STREAM file_open(str* filename, MODE access)
    }
    
    // actual open operation
-   register int fd = open(getarray(filename), finalflags, mode);
+   int fd = open(getarray(filename), finalflags, mode);
    
    // debugging
    #ifdef PRINTDEBUG
@@ -195,7 +192,7 @@ stinl u8 file_destroy(str* filename)
    // =-> file_scrub()...
 
    // =-> destroy link to the file 
-   register int success = unlink(getarray(filename));
+   int success = unlink(getarray(filename));
    
    #ifdef PRINTDEBUG
       sayline({}{}{}{}{}{}{}{}{});

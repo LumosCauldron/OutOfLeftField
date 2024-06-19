@@ -4,6 +4,13 @@
 #define GodIsWithMe
 
 // ---------------------------------------------------------------------------------|
+// ---------------------------------------------------------------------------------||  PREDEFINES 
+// ---------------------------------------------------------------------------------|
+
+     #define _GNU_SOURCE // for other 'O_' file io options
+     #define _FILE_OFFSET_BITS 64 // for O_LARGEFILE file io option
+
+// ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  CUSTOM TYPES
 // ---------------------------------------------------------------------------------|
 
@@ -96,7 +103,7 @@ typedef __UINT64_TYPE__ u64;
 // ---------------------------------------------------------------------------------|
 
 #ifdef MYMATH
-     #include "mymath.h"
+     #include "include/one/mymath.h"
 #else
      #include <math.h>
 #endif
@@ -121,17 +128,19 @@ typedef __UINT64_TYPE__ u64;
 // ---------------------------------------------------------------------------------||  PRINT SHOP
 // ---------------------------------------------------------------------------------|
 #ifdef CONSOLE
-   #include "printf.h"
-   #define say(format, ...) record(format, __VA_ARGS__)
+   #include "include/one/printf.h"
+   #define say(format, ...) record((format), __VA_ARGS__)
    
 #else
    #include <stdio.h>
-   #define say(format, ...) printf(format, __VA_ARGS__)
+   #define say(format, ...) printf((format), __VA_ARGS__)
 #endif
 
 #ifdef DEBUG
+     #include <errno.h>
+     
      u64 msgPushOutCount = 1;
-     u8 debug_check(u64 x, char* msg, char* function)
+     u8 debug_check(u64 x, char* msg, const char* function)
      {
           if (x)
           {
@@ -143,27 +152,29 @@ typedef __UINT64_TYPE__ u64;
                {
                     say("%s\n", msg);
                     u64 pushout = msgPushOutCount;
-                    while (pushout) { say("  "); --pushout; }
-                    say("[ %s ]\n", function);
+                    while (pushout) { say("%s\n", "  "); --pushout; }
+                    say("+ %s +\n", function);
                     ++msgPushOutCount;
                }
                return 0;
           }
      }
 
-     #define nope_msg(val, msg) debug_check(u64c((val)), (msg), (__FUNCTION__))
-     #define nope_ret(val) if (!debug_check(u64c((val)), nullptr, (__FUNCTION__))) { return; }
-     #define nope_msg_ret(val, msg) if (!debug_check(u64c((val)), (msg), (__FUNCTION__))) { return; }
-     #define nope_retx(val, x) if (!debug_check(u64c((val)), nullptr, (__FUNCTION__))) { return (x); }
-     #define nope_msg_retx(val, msg, x) if (!debug_check(u64c((val)), (msg), (__FUNCTION__))) { return (x); }
+     #define nope_msg(val, msg)              debug_check(u64c((val)), (msg),   (__FUNCTION__))
+     #define nope_ret(val)              if (!debug_check(u64c((val)), nullptr, (__FUNCTION__))) { return; }
+     #define nope_msg_ret(val, msg)     if (!debug_check(u64c((val)), (msg),   (__FUNCTION__))) { return; }
+     #define nope_retx(val, x)          if (!debug_check(u64c((val)), nullptr, (__FUNCTION__))) { return (x); }
+     #define nope_msg_retx(val, msg, x) if (!debug_check(u64c((val)), (msg),   (__FUNCTION__))) { return (x); }
      
      /* 
           helpful
                     */
-     #define nope_ptr(ptr) nope_msg_ret((ptr), "empty pointer found")
-     #define nope_ptr_ret0(ptr) nope_msg_retx((ptr), "empty pointer found", 0)
-     #define nope_expr(expr) nope_msg_ret((expr), "falsehood found")
-     #define nope_expr_ret0(expr) nope_msg_retx((expr), "falsehood found", 0)
+     #define nope_ptr(ptr)           nope_msg_ret((ptr),   "empty pointer ["#ptr"] found")
+     #define nope_ptr_ret0(ptr)      nope_msg_retx((ptr),  "empty pointer ["#ptr"] found", 0)
+     #define nope_ptr_retx(ptr, x)   nope_msg_retx((ptr),  "empty pointer ["#ptr"] found", (x))
+     #define nope_expr(expr)         nope_msg_ret((expr),  "falsehood ["#expr"] found")
+     #define nope_expr_ret0(expr)    nope_msg_retx((expr), "falsehood ["#expr"] found", 0)
+     #define nope_expr_retx(expr, x) nope_msg_retx((expr), "falsehood ["#expr"] found", (x))
 #else
      #define nope_msg(val, msg) 
      #define nope_ret(val) 
@@ -172,8 +183,11 @@ typedef __UINT64_TYPE__ u64;
      #define nope_msg_retx(val, msg, x)
      #define nope_ptr(ptr)
      #define nope_ptr_ret0(ptr)
+     #define nope_ptr_retx(ptr, x)
      #define nope_expr(expr)
      #define nope_expr_ret0(expr)
+     #define nope_expr_retx(ptr, x)
+     #define errno 0 // default errno value
 #endif
 
 
@@ -417,7 +431,7 @@ void memxor(void* dst, void* src, u64 len)
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  CRYPTO PLUGIN
 // ---------------------------------------------------------------------------------|
-#include "cipher7.h"
+#include "include/one/cipher7.h"
 
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  DYNAMIC MEMORY
@@ -429,7 +443,7 @@ void memxor(void* dst, void* src, u64 len)
      custom allocator           
                         */
 #ifdef GRACE
-   #include "grace.h"
+   #include "include/one/grace.h"
    #define grace(x) allocPlusPlus((x)) _grace((x))
    #define moregrace(ptr, x) reallocPlusPlus((ptr)) _moregrace((ptr), (x))
    #define restore(x) freedPlusPlus((x)) _restore((void*)(x))
@@ -461,7 +475,7 @@ void memxor(void* dst, void* src, u64 len)
 
 
 // ---------------------------------------------------------------------------------|
-// ---------------------------------------------------------------------------------||  CUSTOM STRING
+// ---------------------------------------------------------------------------------||  CUSTOM STRINGS
 // ---------------------------------------------------------------------------------|
 
 /*
@@ -734,8 +748,8 @@ stinl u8 isemptystr(str* b) // is it a str with a length of 1 pointing to a nul-
                                     */
 str* str_append(str* mainstr, str* toadd)
 {
-   nope_msg_retx(mainstr, "empty 'mainstr' pointer found", mainstr);
-   nope_msg_retx(mainstr, "empty 'toadd' pointer found", mainstr);
+   nope_ptr_retx(mainstr, mainstr);
+   nope_ptr_retx(toadd, mainstr);
    
    if (!mainstr && !toadd)
    {
@@ -828,8 +842,8 @@ str* str_buf(u64 len7, void* bytes)
                                  */
 stinl str* str_copy(str* dest, str* src)
 {
-   nope_msg_retx(dest, "empty 'dest' pointer found", dest);
-   nope_msg_retx(src, "empty 'src' pointer found", dest);
+   nope_ptr_retx(dest, dest);
+   nope_ptr_retx(src, dest);
    
    memto(getarray(dest), getarray(src), getlen(src));
    return dest;
@@ -837,8 +851,8 @@ stinl str* str_copy(str* dest, str* src)
 
 stinl u8 str_eq(str* one, str* two)
 {
-   nope_msg_retx(dest, "empty 'one' pointer found", dest);
-   nope_msg_retx(src, "empty 'two' pointer found", dest);
+   nope_ptr_ret0(one);
+   nope_ptr_ret0(two);
    
    if (getlen(one) != getlen(two))
    {
@@ -901,11 +915,11 @@ stinl u64 str_index(str* b, u64 i)
    
    switch (typeofstr(b))
    {
-      case t1 : return in8off(b, i);
-      case t8 : return in64off(b, i);
-      case t2 : return in16off(b, i);
-      case t4 : return in32off(b, i);
-      default : return in8off(b, i);
+      case t1 : return in8off(b->array, i);
+      case t8 : return in64off(b->array, i);
+      case t2 : return in16off(b->array, i);
+      case t4 : return in32off(b->array, i);
+      default : return in8off(b->array, i);
    }
 }
 
@@ -913,6 +927,383 @@ stinl void str_init(str* b, u8 c)
 {
    nope_ptr(b);
    mempaint(getarray(b), getlen(b), c);
+}
+
+// ---------------------------------------------------------------------------------|
+// ---------------------------------------------------------------------------------||  FILE OPERATIONS
+// ---------------------------------------------------------------------------------|
+
+#ifdef YANG
+     #include "include/yang/winfiles.h"     
+#else // YIN
+
+     // notes: 
+     // 1. improve =-> (void) __sseek((void *)fp, (0fpos_t)0, SEEK_END); maybe for O_APPEND functionality?
+     // 2. improve =-> give ability to change directories to avoid maximum supported path errors
+
+     // compatibility 
+     #ifndef O_DIRECT
+        #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probable compiling for Mac OSX)
+     #endif
+
+     // their libs
+     #include <fcntl.h>
+     #include <sys/types.h>
+     #include <sys/stat.h>
+     #include <unistd.h>
+
+     // types
+     typedef int MODE;
+     typedef i64 STREAM;
+
+     // modes/misc
+     #define maxname 255 // misc
+     #define slashstr "/" // misc
+     #define executemode 1
+     #define writemode 2
+     #define readmode 4 
+     #define readwrite 6
+     #define specialmode 7
+     #define createmode 8
+
+     // read/write speed
+     #define disk_block_size 4096
+     #ifndef SMALLBOY
+        #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read (hardcoded max speed)
+     #else
+        #define fast_aligned_rate (disk_block_size) // ~4kbs per read (hardcoded max speed)
+     #endif
+     #define rwDBS disk_block_size
+     #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
+
+     #define invalid_stream -1
+     #define lseek_failed -1
+     #define read_failed -1
+     #define stat_failed -1
+     #define write_failed -1
+     #define unlink_failed -1
+
+     // globals
+     u64 max_path_supported = 0;
+
+     // functions
+     // _______________________________________________________
+     // file_open
+     // 
+     // _______________________________________________________
+     stinl STREAM file_open(str* filename, MODE access) 
+     {
+        // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
+        if (!max_path_supported)
+        {
+           max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
+        }
+        
+        nope_ptr_retx(filename, invalid_stream);
+        nope_expr_ret0(!isemptystr(filename));
+        nope_expr_retx(getlen(filename) <= max_path_supported, invalid_stream);
+        // must be the same as file_destroy
+        // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
+        
+        // =-> (write straight to disk linux:"O_DIRECT", osx:"fcntl(fd, F_NOCACHE, 1)"
+        // =-> large files ok
+        // =-> don't update date
+        // =-> symlinks don't count
+        // =-> ensure data don't care about metadata
+        int genflags = O_LARGEFILE | O_NOATIME  | 
+                      O_NOFOLLOW  | O_DSYNC    | O_DIRECT;
+        
+        // =-> when creating/createmode: replace already existing, write only then add the above
+        int finalflags = O_CREAT | O_WRONLY | 
+                       O_TRUNC | genflags;
+                               
+        int mode = S_ISVTX | S_IRWXU;
+        switch (access)
+        {
+           case createmode: 
+                 break;
+           case specialmode: // =-> fall into readwrite for permissions
+           case readwrite: finalflags = genflags | O_RDWR; // =-> what we want to do
+                           mode = S_IRUSR | S_IWUSR; // =-> what we need to do it
+                           break;
+                           
+           case readmode: finalflags = genflags | O_RDONLY;
+                          mode = S_IRUSR; 
+                          break;
+                          
+           case executemode: finalflags = genflags | O_RDONLY;
+                             mode = S_IRUSR | S_IXUSR; 
+                             break;
+                             
+           case writemode: finalflags = genflags | O_WRONLY;
+                           mode = S_IWUSR; 
+                           break;
+           default: nope_msg_retx(0, "unknown mode specified", invalid_stream);
+        }
+        
+        // actual open operation
+        int fd = open(getarray(filename), finalflags, mode);
+        
+        // debugging
+        if (access != createmode)
+        {
+           say("%s : %s\n", "open called", getarray(filename));
+        }
+        else
+        {
+           say("%s : %s\n", "create called", getarray(filename));
+        }
+     
+        say("%s : %d\n", "fd given", fd);
+        say("%s : %ld\n", "error", errno);
+        
+        // =-> if bad file descriptor 
+        nope_expr_retx(fd != invalid_stream, invalid_stream);
+        
+        #ifdef IZANAMI
+           if (fd != invalid_stream)  // same as using O_DIRECT but for OSX
+           {
+              fcntl(fd, F_NOCACHE, 1);
+           }
+        #endif
+        
+        return fd;
+     }
+     // _______________________________________________________
+     // file_close
+     // 
+     // _______________________________________________________
+     stinl void file_close(STREAM stream)
+     {
+        nope_expr(stream >= 0);
+        
+        if (stream >= 0)
+        {
+           close(stream);
+        }
+     }
+     // _______________________________________________________
+     // file_exists
+     // 
+     // _______________________________________________________
+     u8 file_exists(str* filename)
+     {
+        nope_ptr_ret0(filename); 
+        struct stat info;
+        return (stat(getarray(filename), &info) == 0);
+     }
+     // _______________________________________________________
+     // file_size
+     // 
+     // _______________________________________________________
+     u64 file_size(str* filename)
+     {
+        nope_ptr_ret0(filename); 
+        
+        struct stat info;
+        
+        nope_expr_ret0(stat(getarray(filename), &info) != stat_failed);
+        
+        return info.st_size;
+     }
+     // _______________________________________________________
+     // file_destroy
+     // 
+     // _______________________________________________________
+     stinl u8 file_destroy(str* filename)
+     {
+        if (!max_path_supported)
+        {
+           max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
+        }
+        nope_ptr_ret0(filename);
+        nope_expr_ret0(!isemptystr(filename));
+        nope_expr_ret0(getlen(filename) <= max_path_supported);
+
+        // =-> add support for file overwriting
+        // =-> if (paranoid)
+        // =-> file_scrub()...
+
+        // =-> destroy link to the file 
+        int success = unlink(getarray(filename));
+        
+        say("%s -/-> %s\n", "unlink called", getarray(filename));
+        say("%s : %d\n", "error", errno);
+        
+        // =-> if unlinking failed
+        nope_expr_ret0(success != unlink_failed);
+        
+        return 1;
+     }
+#endif // YIN
+
+stinl u8 readfilef(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
+{
+   u64 readrate = (amt / rwDBS) * rwDBS;
+   if (!readrate)
+   {
+      readrate = rwDBS;
+   }
+   else if (readrate > fast_aligned_rate)
+   {
+      readrate = fast_aligned_rate;
+   }
+   
+   // configure number of reads/writes
+   str* s = hbuffer(readrate); 
+   u8* data = s->array;
+   u64 times = amt / readrate; 
+   u16 remainder = amt % readrate;
+   
+   while (times)
+   {
+      
+      nope_expr_ret0(read(in, data, readrate) != read_failed);
+      if (faith)
+      {
+         thyreos(data, readrate, faith);
+      }
+      nope_expr_ret0(write(out, data, readrate) != write_failed);
+      --times;
+   }
+   
+   if (remainder)
+   {
+      nope_expr_ret0(read(in, data, readrate) != read_failed);
+      if (faith)
+      {
+         thyreos(data, remainder, faith);
+      }
+      nope_expr_ret0(write(out, data, readrate) != write_failed);
+   }
+   
+   str_free(&s);
+   return 1;
+}
+
+stinl u8 readfileb(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
+{
+   u64 readrate = (amt / rwDBS) * rwDBS;
+   if (!readrate)
+   {
+      readrate = rwDBS;
+   }
+   else if (readrate > fast_aligned_rate)
+   {
+      readrate = fast_aligned_rate;
+   }
+   
+   // configure number of reads/writes
+   str* s = hbuffer(readrate);
+   u8* data = getarray(s);
+   u64 times = (amt / readrate); 
+   i64 backup = -(readrate << 1); // keep a signed integer
+   u16 remainder = amt % readrate;
+   
+
+   // calibrate first read (its ok if remainder is 0)
+   if (remainder)
+   {
+      nope_expr_ret0(lseek(in, -remainder, SEEK_END) != lseek_failed);
+      nope_expr_ret0(lseek(out, -remainder, SEEK_END) != lseek_failed);
+   }
+   else
+   {
+      nope_expr_ret0(lseek(in, -readrate, SEEK_END) != lseek_failed);
+      nope_expr_ret0(lseek(out, -readrate, SEEK_END) != lseek_failed);
+   }
+         
+   do
+   {
+      nope_expr_ret0(read(in, data, readrate) != read_failed);
+      if (faith)
+      {
+         if (remainder)
+         {
+            thyreos(data, remainder, faith);
+         }
+         else
+         {
+            thyreos(data, readrate, faith);
+         }
+      }
+      nope_expr_ret0(write(out, data, readrate) != write_failed);
+      // meets 2 conditions: when only remainder exists OR last time
+      // this if-statement is the wall to make sure lseek doesn't place us before file
+      if (times < 2) 
+      {
+         // we just did the remainder so go around one more time if 'times' == 1
+         if (!remainder || !times)
+         {
+            break; // jump out of while(1)
+         }
+      }
+      
+      // go back the correct amount of bytes based off what we read
+      if (remainder)
+      {              // backup is a negative integer
+         nope_expr_ret0(lseek(in, backup + cast(readrate - remainder, i64), SEEK_CUR) != lseek_failed);
+      }
+      else
+      {
+         nope_expr_ret0(lseek(in, backup, SEEK_CUR) != lseek_failed);
+      }
+      nope_expr_ret0(lseek(out, backup, SEEK_CUR) != lseek_failed);
+      
+      // "turn off" the remainder
+      remainder = 0;
+      --times;
+   } while (1);
+   
+   str_free(&s);
+   return 1;
+}
+
+#define readfile(oldf, newf) encryptfile((oldf), (newf), nullptr)
+void encryptfile(str* oldf, str* newf, ShadowOfTheHisWing* faith)
+{
+   u64 filesz = file_size(oldf);
+   nope_expr(filesz > 0);
+   
+   STREAM in = file_open(oldf, readmode);
+   STREAM out = file_open(newf, createmode);
+   
+   ftruncate(out, filesz); // get harddisk space mapped out
+   if (readfilef(in, filesz, out, faith))
+   {  // truncate to the correct size
+      ftruncate(out, filesz); 
+      say("%s\n", "Read this file successfully.");
+   }
+   else
+   {
+      say("%s\n", "Did NOT read this file successfully.");
+   }
+   
+   file_close(in);
+   file_close(out);
+}
+
+void decryptfile(str* oldf, str* newf, ShadowOfTheHisWing* faith)
+{
+   u64 filesz = file_size(oldf);
+   nope_expr(filesz > 0);
+   
+   STREAM in = file_open(oldf, readmode);
+   STREAM out = file_open(newf, createmode);
+   
+   ftruncate(out, filesz); // get harddisk space mapped out
+   if (readfilef(in, filesz, out, faith))
+   {  // truncate to the correct size
+      ftruncate(out, filesz); 
+      say("%s\n", "Read this file successfully.");
+   }
+   else
+   {
+      say("%s\n", "Did NOT read this file successfully.");
+   }
+   
+   file_close(in);
+   file_close(out);
 }
 
 // ---------------------------------------------------------------------------------|
@@ -940,7 +1331,7 @@ void str_print_bin(str* b)
           {
                say("%c", '\n');
           }
-          u8 x = str_index(b->array, i);
+          u8 x = str_index(b, i);
           if (x <= 0xf)
           {
                say("0%x ", x);
@@ -957,34 +1348,34 @@ void str_print_bin(str* b)
 str* str_w_As(u64 len)
 {
      str* b = hbuffer(len);
-     str_init(b, 'a');
+     str_init(b, 'b');
      return b;
 }
-str* str_w_Cs(u64 len)
+str* str_w_Ds(u64 len, u8 c)
 {
      str* b = hbuffer(len);
-     str_init(b, 'c');
+     str_init(b, c);
      return b;
 }
 
-int main() 
-{
-     str* b = str_w_As(2000);
-     str* k = str_w_Cs(49);
-     
-     ShadowOfTheHisWing mixer5000;
-     cryptokey(k->array, &mixer5000);
-     ShadowOfTheHisWing mixer5001;
-     cryptokey(k->array, &mixer5001);
-     
-     str_print_bin(b);divider();
-     thyreos(b->array, getlen(b), &mixer5000);
-     str_print_bin(b);divider();
-     thyreos(b->array, getlen(b), &mixer5001);
-     str_print_bin(b);
-     
-}
+// ====================================================
+// ====================================================
+int main()
+{  
+   str* mansees1 = datastr("src/include/one/cipher7.h");
+   str* Godsees = datastr("test/cipher7_encrypted");
+   str* mansees2 = datastr("test/cipher7_decrypted.h");
+   str* key = datastr("thisisa49bytekeyworksverynicely to God betheglory");
 
+   ShadowOfTheHisWing faith;
+   cryptokey(getarray(key), &faith);
+
+   encryptfile(mansees1, Godsees, &faith);
+   keyrestart(&faith);
+   decryptfile(Godsees, mansees2, &faith);
+   
+   finished;
+}
 #endif // GodIsWithMe
 
 // "To God be the Glory Honor Praise Forever and Ever" 
