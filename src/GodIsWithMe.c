@@ -130,10 +130,11 @@ typedef __UINT64_TYPE__ u64;
 #ifdef CONSOLE
    #include "include/one/printf.h"
    #define say(format, ...) record((format), __VA_ARGS__)
-   
-#else
+#elif PRINTF
    #include <stdio.h>
    #define say(format, ...) printf((format), __VA_ARGS__)
+#else
+   #define say(format, ...)
 #endif
 
 #ifdef DEBUG
@@ -465,7 +466,7 @@ void memxor(void* dst, void* src, u64 len)
    #define allocPlusPlus(x) ((numallocs += ((x) != 0)) & 0x0000000000000000) +
    #define reallocPlusPlus(ptr) ((numallocs += (!(ptr))) & 0x0000000000000000) +
    #define freedPlusPlus(x) numfrees += ((x) != 0);
-   #define finished printf("==================\nALLOC COUNT %lu\nFREED COUNT %lu\n==================\n\n", numallocs, numfrees); return 0
+   #define finished say("==================\nALLOC COUNT %lu\nFREED COUNT %lu\n==================\n\n", numallocs, numfrees); return 0
 #else
    #define allocPlusPlus(x) 
    #define reallocPlusPlus(ptr) 
@@ -566,6 +567,20 @@ stinl u64 getlen(str* b);
 stinl u64 str_index(str*, u64);
 stinl void str_init(str*, u8);
 stinl u8 typeofstr(str*);
+
+/*
+     strlen replacement
+                          */
+stinl u64 tilnul(char* array)
+{
+   u64 count = 0;
+   while(*array)
+   {
+     ++array;
+     ++count;
+   }
+   return count;
+}                      
 
 /*
      setters
@@ -945,6 +960,8 @@ stinl void str_init(str* b, u8 c)
      #ifndef O_DIRECT
         #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probable compiling for Mac OSX)
      #endif
+     
+     #define truncate(...) ftruncate(...) 
 
      // their libs
      #include <fcntl.h>
@@ -1090,7 +1107,8 @@ stinl void str_init(str* b, u8 c)
      {
         nope_ptr_ret0(filename); 
         struct stat info;
-        return (stat(getarray(filename), &info) == 0);
+        int retval = stat(getarray(filename), &info);
+        return (retval == 0);
      }
      // _______________________________________________________
      // file_size
@@ -1099,11 +1117,9 @@ stinl void str_init(str* b, u8 c)
      u64 file_size(str* filename)
      {
         nope_ptr_ret0(filename); 
-        
         struct stat info;
-        
-        nope_expr_ret0(stat(getarray(filename), &info) != stat_failed);
-        
+        int retval = stat(getarray(filename), &info);
+        nope_expr_ret0(retval != stat_failed);
         return info.st_size;
      }
      // _______________________________________________________
@@ -1137,7 +1153,7 @@ stinl void str_init(str* b, u8 c)
      }
 #endif // YIN
 
-stinl u8 readfilef(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
+stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith)
 {
    u64 readrate = (amt / rwDBS) * rwDBS;
    if (!readrate)
@@ -1154,34 +1170,38 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
    u8* data = s->array;
    u64 times = amt / readrate; 
    u16 remainder = amt % readrate;
+   i16 retval = 0;
    
    while (times)
    {
-      
-      nope_expr_ret0(read(in, data, readrate) != read_failed);
+      retval = read(in, data, readrate);
+      nope_expr_ret0(retval != read_failed);
       if (faith)
       {
-         thyreos(data, readrate, faith);
+         encrypt_string(data, readrate, faith);
       }
-      nope_expr_ret0(write(out, data, readrate) != write_failed);
+      retval = write(out, data, readrate);
+      nope_expr_ret0(retval != write_failed);
       --times;
    }
    
    if (remainder)
    {
-      nope_expr_ret0(read(in, data, readrate) != read_failed);
+      retval = read(in, data, readrate);
+      nope_expr_ret0(retval != read_failed);
       if (faith)
       {
-         thyreos(data, remainder, faith);
+         encrypt_string(data, remainder, faith);
       }
-      nope_expr_ret0(write(out, data, readrate) != write_failed);
+      retval = write(out, data, readrate);
+      nope_expr_ret0(retval != write_failed);
    }
    
    str_free(&s);
    return 1;
 }
 
-stinl u8 readfileb(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
+stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith)
 {
    u64 readrate = (amt / rwDBS) * rwDBS;
    if (!readrate)
@@ -1199,35 +1219,42 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
    u64 times = (amt / readrate); 
    i64 backup = -(readrate << 1); // keep a signed integer
    u16 remainder = amt % readrate;
+   i16 retval = 0;
    
 
    // calibrate first read (its ok if remainder is 0)
    if (remainder)
    {
-      nope_expr_ret0(lseek(in, -remainder, SEEK_END) != lseek_failed);
-      nope_expr_ret0(lseek(out, -remainder, SEEK_END) != lseek_failed);
+      retval = lseek(in, -remainder, SEEK_END);
+      nope_expr_ret0(retval != lseek_failed);
+      retval = lseek(out, -remainder, SEEK_END);
+      nope_expr_ret0(retval != lseek_failed);
    }
    else
    {
-      nope_expr_ret0(lseek(in, -readrate, SEEK_END) != lseek_failed);
-      nope_expr_ret0(lseek(out, -readrate, SEEK_END) != lseek_failed);
+      retval = lseek(in, -readrate, SEEK_END); 
+      nope_expr_ret0(retval != lseek_failed);
+      retval = lseek(out, -readrate, SEEK_END);
+      nope_expr_ret0(retval != lseek_failed);
    }
          
    do
    {
-      nope_expr_ret0(read(in, data, readrate) != read_failed);
+      retval = read(in, data, readrate);
+      nope_expr_ret0(retval != read_failed);
       if (faith)
       {
          if (remainder)
          {
-            thyreos(data, remainder, faith);
+            encrypt_string(data, remainder, faith);
          }
          else
          {
-            thyreos(data, readrate, faith);
+            encrypt_string(data, readrate, faith);
          }
       }
-      nope_expr_ret0(write(out, data, readrate) != write_failed);
+      retval = write(out, data, readrate);
+      nope_expr_ret0(retval != write_failed);
       // meets 2 conditions: when only remainder exists OR last time
       // this if-statement is the wall to make sure lseek doesn't place us before file
       if (times < 2) 
@@ -1242,13 +1269,16 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
       // go back the correct amount of bytes based off what we read
       if (remainder)
       {              // backup is a negative integer
-         nope_expr_ret0(lseek(in, backup + cast(readrate - remainder, i64), SEEK_CUR) != lseek_failed);
+         retval = lseek(in, backup + cast(readrate - remainder, i64), SEEK_CUR);
+         nope_expr_ret0(retval != lseek_failed);
       }
       else
       {
-         nope_expr_ret0(lseek(in, backup, SEEK_CUR) != lseek_failed);
+         retval = lseek(in, backup, SEEK_CUR);
+         nope_expr_ret0(retval != lseek_failed);
       }
-      nope_expr_ret0(lseek(out, backup, SEEK_CUR) != lseek_failed);
+      retval = lseek(out, backup, SEEK_CUR);
+      nope_expr_ret0(retval != lseek_failed);
       
       // "turn off" the remainder
       remainder = 0;
@@ -1260,38 +1290,18 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, ShadowOfTheHisWing* faith)
 }
 
 #define readfile(oldf, newf) encryptfile((oldf), (newf), nullptr)
-void encryptfile(str* oldf, str* newf, ShadowOfTheHisWing* faith)
+#define decryptfile(oldf, newf, faith) encryptfile((oldf), (newf), (faith))
+void encryptfile(str* oldf, str* newf, Shield* faith)
 {
    u64 filesz = file_size(oldf);
    nope_expr(filesz > 0);
+   say("file size %lu\n", filesz);
    
    STREAM in = file_open(oldf, readmode);
    STREAM out = file_open(newf, createmode);
    
    ftruncate(out, filesz); // get harddisk space mapped out
-   if (readfilef(in, filesz, out, faith))
-   {  // truncate to the correct size
-      ftruncate(out, filesz); 
-      say("%s\n", "Read this file successfully.");
-   }
-   else
-   {
-      say("%s\n", "Did NOT read this file successfully.");
-   }
-   
-   file_close(in);
-   file_close(out);
-}
-
-void decryptfile(str* oldf, str* newf, ShadowOfTheHisWing* faith)
-{
-   u64 filesz = file_size(oldf);
-   nope_expr(filesz > 0);
-   
-   STREAM in = file_open(oldf, readmode);
-   STREAM out = file_open(newf, createmode);
-   
-   ftruncate(out, filesz); // get harddisk space mapped out
+   say("file size %lu\n", filesz);
    if (readfilef(in, filesz, out, faith))
    {  // truncate to the correct size
       ftruncate(out, filesz); 
@@ -1312,7 +1322,7 @@ void decryptfile(str* oldf, str* newf, ShadowOfTheHisWing* faith)
 
 /*
      test helpers
-                    */
+                    
 void divider()
 {
      say("%s\n", "-----------------------------");
@@ -1357,22 +1367,68 @@ str* str_w_Ds(u64 len, u8 c)
      str_init(b, c);
      return b;
 }
-
+*/
 // ====================================================
 // ====================================================
-int main()
+int main(int numparams, char** params)
 {  
-   str* mansees1 = datastr("src/include/one/cipher7.h");
-   str* Godsees = datastr("test/cipher7_encrypted");
-   str* mansees2 = datastr("test/cipher7_decrypted.h");
-   str* key = datastr("thisisa49bytekeyworksverynicely to God betheglory");
+   // check enough parameters exist
+   if (numparams < 3)
+   {
+     return 1;
+   }
+   
+   // file path length
+   u32 filename_length = tilnul(params[1]);
+   
+   // file path to encrypt
+   str* filename = charstr(filename_length, params[1]);
+   
+   // check it exists
+   if (!file_exists(filename))
+   {
+     return 2;
+   }
+   
+   // setup encrypted file name
+   u8 name_holder[filename_length + 4];
+   memto(name_holder, filename->array, filename_length);
+   
+   if (filename_length > 3)
+   {
+     if (name_holder[filename_length - 1] == '7' && 
+         name_holder[filename_length - 2] == 'c' &&
+         name_holder[filename_length - 3] == '.')
+     {
+          name_holder[filename_length - 3] = 0;
+          filename_length -= 3;
+          goto naming_done;
+     }
 
-   ShadowOfTheHisWing faith;
-   cryptokey(getarray(key), &faith);
+   }
+     
+     name_holder[  filename_length  ] = '.';
+     name_holder[filename_length + 1] = 'c';
+     name_holder[filename_length + 2] = '7';
+     name_holder[filename_length + 3] = 0; // nul-terminate
+     filename_length += 3;
+   
+   naming_done: ;
+   str* encrypted_filename = charstr(filename_length, name_holder);
+   
+   // setup key
+   u64 keylen = tilnul(params[2]);
+   u8 key[MSGBLKSZ + 1];
+   mempaint(key, MSGBLKSZ, 7);
+   keylayer(key, params[2], keylen);
+   key[MSGBLKSZ] = 0;
 
-   encryptfile(mansees1, Godsees, &faith);
-   keyrestart(&faith);
-   decryptfile(Godsees, mansees2, &faith);
+   // setup encryption context
+   Shield faith;
+   encryption_initialize(key, &faith);
+   
+   // encrypt
+   encryptfile(filename, encrypted_filename, &faith);
    
    finished;
 }
