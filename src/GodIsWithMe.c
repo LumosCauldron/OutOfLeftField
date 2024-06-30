@@ -214,6 +214,8 @@ stinl u64 pos(i64 num)
                                        */
 stinl u64 ptrdiff(void* one, void* two)
 {
+     nope_ptr_retx(one, u64c(two));
+     nope_ptr_retx(two, u64c(one));
      return pos(u64c(one) - u64c(two));
 }
 
@@ -221,7 +223,7 @@ stinl u64 ptrdiff(void* one, void* two)
      memmove in reverse; triggered by mem overlap
                                                     */
 void memto_rev(void* dst, void* src, u64 len)
-{
+{    
      u32 times = len >> 3;
      u8 rem = len & u64c(7);
      
@@ -247,6 +249,9 @@ void memto_rev(void* dst, void* src, u64 len)
                                        */
 void memto(void* dst, void* src, u64 len)
 {
+     nope_ptr(dst);
+     nope_ptr(src);
+
      u64 diff = ptrdiff(dst, src);
      u32 times = len >> 3;
      u8 rem = len & u64c(7);
@@ -311,6 +316,9 @@ u8 memeq_rev(void* dst, void* src, u64 len)
                                        */
 u8 memeq(void* dst, void* src, u64 len)
 {
+     nope_ptr_ret0(dst);
+     nope_ptr_ret0(src);
+
      u64 diff = ptrdiff(dst, src);
      u32 times = len >> 3;
      u8 rem = len & u64c(7);
@@ -349,6 +357,8 @@ u8 memeq(void* dst, void* src, u64 len)
                      */
 void mempaint(void* dst, u64 len, u8 c)
 {
+     nope_ptr(dst);
+
      u8 src[8] = { c, c, c, c, c, c, c, c };
      u32 times = len >> 3;
      u8 rem = len & u64c(7);
@@ -371,6 +381,115 @@ void memscrub(void* dst, u64 len)
 {
      mempaint(dst, len, 0x55);
      mempaint(dst, len, 0xAA);
+}
+
+void* memsearch(void* data, u64 dlen, void* snippet, u64 slen)
+{    
+     nope_ptr_ret0(data);
+     nope_ptr_ret0(snippet);
+     
+     if (slen > dlen || !slen)
+     {
+          return nullptr;
+     }
+     
+     dlen -= slen;
+     
+     do
+     {
+          if (memeq(data, snippet, slen))
+          {
+               return data;
+          }
+          data = off8(data, 1);
+     } while (dlen--); // keep post decrement
+}
+
+void* memsearch2(void* data1, u64 dlen1, void* data2, u64 dlen2, void* snippet, u64 slen)
+{
+     // at least one points to data
+     nope_expr_ret0(data1 != nullptr || data2 != nullptr); 
+     nope_ptr_ret0(snippet);
+
+     if (!slen)
+     {
+          return nullptr;
+     }
+     
+     void* found = nullptr;
+     if (dlen1 >= slen)
+     {
+          if (found = memsearch(data1, dlen1, snippet, slen))
+          {
+               return found; // reusing pointers
+          }
+     }
+     
+     if (dlen1 + dlen2 >= slen)
+     {
+          u64 subsnip = slen - 1;
+          u64 checklen = subsnip << 1;
+          u64 tempoff = subsnip;
+          
+          u8 temp[checklen];
+          
+          if (dlen1 >= subsnip) // catches case where (dlen1 + dlen2) is enough but dlen1 isnt
+          {
+               memto(u8p(temp), data1 + (dlen1 - subsnip), subsnip);
+          }
+          else
+          {
+               memto(u8p(temp), data1, dlen1);
+               checklen -= subsnip;
+               checklen += dlen1;
+               tempoff = dlen1;
+          }
+          
+          if (dlen2 >= subsnip) // catches case where (dlen1 + dlen2) is enough but dlen2 isnt
+          {
+               memto(u8p(temp + tempoff), data2, subsnip);
+          }
+          else
+          {
+               memto(u8p(temp + tempoff), data2, dlen2);
+               checklen -= subsnip;
+               checklen += dlen2;
+          }
+          
+          if (found = memsearch(temp, checklen, snippet, slen))
+          {
+               u64 foundoff = ptrdiff(found, temp);
+               if (dlen1 < subsnip && foundoff < dlen1)
+               {
+                    return u8p(data1) + foundoff;
+               }
+               else if (foundoff < subsnip)
+               {
+                    return u8p(data1) + (dlen1 - subsnip) + foundoff;
+               }
+               else
+               {
+                    if (dlen1 < subsnip)
+                    {
+                         return u8p(data2) + (foundoff - dlen1);
+                    }
+                    else
+                    {
+                         return u8p(data2) + (dlen2 - subsnip) + (foundoff - subsnip);
+                    }
+               }
+          }
+     }
+     
+     if (dlen2 >= slen)
+     {
+          if (found = memsearch(data2, dlen2, snippet, slen))
+          {
+               return found; // reusing pointers
+          }
+     }
+     
+     return nullptr;
 }
 
 /* 
@@ -402,6 +521,9 @@ void memxor_rev(void* dst, void* src, u64 len)
                                                    */
 void memxor(void* dst, void* src, u64 len)
 {
+     nope_ptr(dst);
+     nope_ptr(src);
+
      u64 diff = ptrdiff(dst, src);
      u32 times = len >> 3;
      u8 rem = len & u64c(7);
@@ -429,10 +551,28 @@ void memxor(void* dst, void* src, u64 len)
      }
 }
 
+
+// ---------------------------------------------------------------------------------|
+// ---------------------------------------------------------------------------------||  FUNCTION MODULES
+// ---------------------------------------------------------------------------------|
+typedef struct DataMod
+{
+     u64 (*fptr)(void*, u64, void*);
+     void* data;
+     u64 len;
+     void* context;
+} datamod;
+
+#define dlc(function, data, len, context) (cast(((datamod [1]){[0] = {(function), (data), (len), (context)}}), datamod*))
+#define execdlc(m)                        ((m)->fptr)((m)->data, (m)->len, (m)->context)
+#define dm(function, data, len, context) execdlc(dlc((function), (data), (len), (context)))
+
+
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  CRYPTO PLUGIN
 // ---------------------------------------------------------------------------------|
 #include "include/one/cipher7.h"
+
 
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  DYNAMIC MEMORY
@@ -751,7 +891,7 @@ stinl u8 protectedstr(str* b)
 stinl u8 isemptystr(str* b) // is it a str with a length of 1 pointing to a nul-terminator
 {
    nope_ptr_ret0(b);
-   return ((getlen(b) == 1) && (str_index(b, 0) == 0));
+   return (getlen(b) == 0);
 }
 
 /*
@@ -961,7 +1101,7 @@ stinl void str_init(str* b, u8 c)
         #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probable compiling for Mac OSX)
      #endif
      
-     #define truncate(...) ftruncate(...) 
+     #define set_file_size(...) ftruncate(__VA_ARGS__) 
 
      // their libs
      #include <fcntl.h>
@@ -1153,7 +1293,7 @@ stinl void str_init(str* b, u8 c)
      }
 #endif // YIN
 
-stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith)
+stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(void*, u64, void*), void* context)
 {
    u64 readrate = (amt / rwDBS) * rwDBS;
    if (!readrate)
@@ -1176,12 +1316,29 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith)
    {
       retval = read(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
+      
+      // check if processing of data is needed
+      // 'fptr' and 'context' may be passed in here
+      if (fptr)
+      {
+          dm(fptr, data, readrate, context);
+      }
+      
+      // check if encryption is desired
+      // 'faith' may be passed in here
       if (faith)
       {
          encrypt_string(data, readrate, faith);
       }
-      retval = write(out, data, readrate);
-      nope_expr_ret0(retval != write_failed);
+      
+      // check that descriptors are not the same
+      // if they are, writing is not desired
+      if (in != out)
+      {
+          retval = write(out, data, readrate);
+          nope_expr_ret0(retval != write_failed);
+      }
+      
       --times;
    }
    
@@ -1189,19 +1346,35 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith)
    {
       retval = read(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
+      
+      // check if processing of data is needed
+      // 'fptr' and 'context' may be passed in here
+      if (fptr)
+      {
+          dm(fptr, data, remainder, context);
+      }
+      
+      // check if encryption is desired
+      // 'faith' may be passed in here
       if (faith)
       {
          encrypt_string(data, remainder, faith);
       }
-      retval = write(out, data, readrate);
-      nope_expr_ret0(retval != write_failed);
+      
+      // check that descriptors are not the same
+      // if they are, writing is not desired
+      if (in != out)
+      {
+           retval = write(out, data, readrate);
+           nope_expr_ret0(retval != write_failed);
+      }
    }
    
    str_free(&s);
    return 1;
 }
 
-stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith)
+stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(void*, u64, void*), void* context)
 {
    u64 readrate = (amt / rwDBS) * rwDBS;
    if (!readrate)
@@ -1242,6 +1415,23 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith)
    {
       retval = read(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
+      
+      // check if processing of data is needed
+      // 'fptr' and 'context' may be passed in here
+      if (fptr)
+      {
+          if (remainder)
+          {
+               dm(fptr, data, remainder, context);
+          }
+          else
+          {
+               dm(fptr, data, readrate, context);
+          }
+      }
+      
+      // check if encryption is desired
+      // 'faith' may be passed in here
       if (faith)
       {
          if (remainder)
@@ -1253,8 +1443,15 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith)
             encrypt_string(data, readrate, faith);
          }
       }
-      retval = write(out, data, readrate);
-      nope_expr_ret0(retval != write_failed);
+      
+      // check that descriptors are not the same
+      // if they are, writing is not desired
+      if (in != out)
+      {
+           retval = write(out, data, readrate);
+           nope_expr_ret0(retval != write_failed);
+      }
+      
       // meets 2 conditions: when only remainder exists OR last time
       // this if-statement is the wall to make sure lseek doesn't place us before file
       if (times < 2) 
@@ -1289,7 +1486,6 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith)
    return 1;
 }
 
-#define readfile(oldf, newf) encryptfile((oldf), (newf), nullptr)
 #define decryptfile(oldf, newf, faith) encryptfile((oldf), (newf), (faith))
 void encryptfile(str* oldf, str* newf, Shield* faith)
 {
@@ -1300,11 +1496,11 @@ void encryptfile(str* oldf, str* newf, Shield* faith)
    STREAM in = file_open(oldf, readmode);
    STREAM out = file_open(newf, createmode);
    
-   ftruncate(out, filesz); // get harddisk space mapped out
+   set_file_size(out, filesz); 
    say("file size %lu\n", filesz);
-   if (readfilef(in, filesz, out, faith))
-   {  // truncate to the correct size
-      ftruncate(out, filesz); 
+   if (readfilef(in, filesz, out, faith, nullptr, nullptr))
+   {
+      set_file_size(out, filesz); // corrects the overwriting of direct-disk-writes
       say("%s\n", "Read this file successfully.");
    }
    else
@@ -1316,61 +1512,11 @@ void encryptfile(str* oldf, str* newf, Shield* faith)
    file_close(out);
 }
 
-// ---------------------------------------------------------------------------------|
-// ---------------------------------------------------------------------------------||  TEST
-// ---------------------------------------------------------------------------------|
 
-/*
-     test helpers
-                    
-void divider()
-{
-     say("%s\n", "-----------------------------");
-}
-void str_print(str* b)
-{
-     say("%s\n", b->array);
-}
-void str_print_bin(str* b)
-{
-     u64 amt = getlen(b);
-     u64 i = 0;
-     while(amt)
-     {
-          if (i % 20 == 0 && i)
-          {
-               say("%c", '\n');
-          }
-          u8 x = str_index(b, i);
-          if (x <= 0xf)
-          {
-               say("0%x ", x);
-          }
-          else
-          {
-               say("%x ", x);
-          }
-          ++i;
-          --amt;
-     }
-     say("%c", '\n');
-}
-str* str_w_As(u64 len)
-{
-     str* b = hbuffer(len);
-     str_init(b, 'b');
-     return b;
-}
-str* str_w_Ds(u64 len, u8 c)
-{
-     str* b = hbuffer(len);
-     str_init(b, c);
-     return b;
-}
-*/
 // ====================================================
+// File Encryption Main
 // ====================================================
-int main(int numparams, char** params)
+/*int main(int numparams, char** params)
 {  
    // check enough parameters exist
    if (numparams < 3)
@@ -1431,7 +1577,92 @@ int main(int numparams, char** params)
    encryptfile(filename, encrypted_filename, &faith);
    
    finished;
+}*/
+
+
+// ---------------------------------------------------------------------------------|
+// ---------------------------------------------------------------------------------||  TEST
+// ---------------------------------------------------------------------------------|
+
+/*
+     test helpers
+                    */
+void divider()
+{
+     say("%s\n", "-----------------------------");
 }
+void str_print(str* b)
+{
+     say("%s\n", b->array);
+}
+void str_print_bin(str* b)
+{
+     u64 amt = getlen(b);
+     u64 i = 0;
+     while(amt)
+     {
+          if (i % 20 == 0 && i)
+          {
+               say("%c", '\n');
+          }
+          u8 x = str_index(b, i);
+          if (x <= 0xf)
+          {
+               say("0%x ", x);
+          }
+          else
+          {
+               say("%x ", x);
+          }
+          ++i;
+          --amt;
+     }
+     say("%c", '\n');
+}
+str* str_w_letter(u64 len, u8 c)
+{
+     str* b = hbuffer(len);
+     str_init(b, c);
+     return b;
+}
+
+int main()
+{
+     str* one = str_w_letter(2, 'x');
+     str* two = str_w_letter(3, 'y');
+     
+     u8* found = u8p(memsearch2(one->array, getlen(one), two->array, getlen(two), "xxyyy", 5 ));
+     if (found)
+     {
+          say("%s\n", found);
+     } 
+     else
+     {
+          say("%s\n", "not found");
+     } 
+     return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #endif // GodIsWithMe
 
 // "To God be the Glory Honor Praise Forever and Ever" 
