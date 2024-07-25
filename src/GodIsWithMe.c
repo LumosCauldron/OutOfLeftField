@@ -176,6 +176,20 @@ typedef __UINT64_TYPE__ u64;
      #define nope_expr(expr)         nope_msg_ret((expr),  "falsehood ["#expr"] found")
      #define nope_expr_ret0(expr)    nope_msg_retx((expr), "falsehood ["#expr"] found", 0)
      #define nope_expr_retx(expr, x) nope_msg_retx((expr), "falsehood ["#expr"] found", (x))
+     
+     #ifdef YANG
+         #define retWindowsError(expr) \
+         char buffer[8] = {0,0,0,0,0,0,0,0}; itoa(GetLastError(), buffer, 10); \
+         nope_msg_ret((expr), buffer);
+ 
+         #define retWindowsError0(expr) \
+         char buffer[8] = {0,0,0,0,0,0,0,0}; itoa(GetLastError(), buffer, 10); \
+         nope_msg_retx((expr), buffer, 0);
+         
+         #define retWindowsErrorX(expr, x) \
+         char buffer[8] = {0,0,0,0,0,0,0,0}; itoa(GetLastError(), buffer, 10); \
+         nope_msg_retx((expr), buffer, (x));
+     #endif
 #else
      #define nope_msg(val, msg) 
      #define nope_ret(val) 
@@ -189,6 +203,12 @@ typedef __UINT64_TYPE__ u64;
      #define nope_expr_ret0(expr)
      #define nope_expr_retx(ptr, x)
      #define errno 0 // default errno value
+     
+     #ifdef YANG
+         #define retWindowsError(expr)
+         #define retWindowsError0(expr)
+         #define retWindowsErrorX(expr, x)
+     #endif
 #endif
 
 
@@ -1088,6 +1108,21 @@ stinl void str_init(str* b, u8 c)
 // ---------------------------------------------------------------------------------||  FILE OPERATIONS
 // ---------------------------------------------------------------------------------|
 
+     // types
+     typedef i64 STREAM;
+     typedef int MODE;
+     
+     // read/write speed
+     #define disk_block_size 4096
+     #ifndef SMALLBOY
+        #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read (hardcoded max speed)
+     #else
+        #define fast_aligned_rate (disk_block_size) // ~4kbs per read (hardcoded max speed)
+     #endif
+     #define rwDBS disk_block_size
+     #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
+
+
 #ifdef YANG
      #include "include/yang/winfiles.h"     
 #else // YIN
@@ -1101,17 +1136,17 @@ stinl void str_init(str* b, u8 c)
         #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probable compiling for Mac OSX)
      #endif
      
-     #define set_file_size(...) ftruncate(__VA_ARGS__) 
+     #define closeit(...) close(__VA_ARGS__)
+     #define openit(...) open(__VA_ARGS__)
+     #define readfrom(...) read(__VA_ARGS__)
+     #define writeto(...) write(__VA_ARGS__)
+     #define set_file_size(...) ftruncate(__VA_ARGS__)
 
      // their libs
      #include <fcntl.h>
      #include <sys/types.h>
      #include <sys/stat.h>
      #include <unistd.h>
-
-     // types
-     typedef int MODE;
-     typedef i64 STREAM;
 
      // modes/misc
      #define maxname 255 // misc
@@ -1123,16 +1158,6 @@ stinl void str_init(str* b, u8 c)
      #define specialmode 7
      #define createmode 8
 
-     // read/write speed
-     #define disk_block_size 4096
-     #ifndef SMALLBOY
-        #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read (hardcoded max speed)
-     #else
-        #define fast_aligned_rate (disk_block_size) // ~4kbs per read (hardcoded max speed)
-     #endif
-     #define rwDBS disk_block_size
-     #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
-
      #define invalid_stream -1
      #define lseek_failed -1
      #define read_failed -1
@@ -1140,27 +1165,39 @@ stinl void str_init(str* b, u8 c)
      #define write_failed -1
      #define unlink_failed -1
 
-     // globals
-     u64 max_path_supported = 0;
-
      // functions
+     // _______________________________________________________
+     // filepath_check
+     // 
+     // globals
+        u64 max_path_supported = 0; // avoids multiple syscalls
+     // _______________________________________________________
+     stinl u8 filepath_check(str* filename)
+     {
+        if (!max_path_supported)
+        {
+           max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
+        }
+        
+        // check filename string is good
+        nope_ptr_ret0(filename);
+        
+        // check filename is not empty
+        nope_expr_ret0(!isemptystr(filename));
+        
+        // check filename is not too long
+        nope_expr_ret0(getlen(filename) <= max_path_supported);
+        
+        return 1;
+     }
+
      // _______________________________________________________
      // file_open
      // 
      // _______________________________________________________
      stinl STREAM file_open(str* filename, MODE access) 
      {
-        // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
-        if (!max_path_supported)
-        {
-           max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
-        }
-        
-        nope_ptr_retx(filename, invalid_stream);
-        nope_expr_ret0(!isemptystr(filename));
-        nope_expr_retx(getlen(filename) <= max_path_supported, invalid_stream);
-        // must be the same as file_destroy
-        // DUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODEDUPCODE
+        nope_expr_retx(filepath_check(filename), invalid_stream);
         
         // =-> (write straight to disk linux:"O_DIRECT", osx:"fcntl(fd, F_NOCACHE, 1)"
         // =-> large files ok
@@ -1199,7 +1236,7 @@ stinl void str_init(str* b, u8 c)
         }
         
         // actual open operation
-        int fd = open(getarray(filename), finalflags, mode);
+        int fd = openit(getarray(filename), finalflags, mode);
         
         // debugging
         if (access != createmode)
@@ -1236,7 +1273,7 @@ stinl void str_init(str* b, u8 c)
         
         if (stream >= 0)
         {
-           close(stream);
+           closeit(stream);
         }
      }
      // _______________________________________________________
@@ -1268,14 +1305,8 @@ stinl void str_init(str* b, u8 c)
      // _______________________________________________________
      stinl u8 file_destroy(str* filename)
      {
-        if (!max_path_supported)
-        {
-           max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
-        }
-        nope_ptr_ret0(filename);
-        nope_expr_ret0(!isemptystr(filename));
-        nope_expr_ret0(getlen(filename) <= max_path_supported);
-
+        nope_expr_ret0(filepath_check(filename));
+        
         // =-> add support for file overwriting
         // =-> if (paranoid)
         // =-> file_scrub()...
@@ -1314,7 +1345,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    
    while (times)
    {
-      retval = read(in, data, readrate);
+      retval = readfrom(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1335,7 +1366,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // if they are, writing is not desired
       if (in != out)
       {
-          retval = write(out, data, readrate);
+          retval = writeto(out, data, readrate);
           nope_expr_ret0(retval != write_failed);
       }
       
@@ -1344,7 +1375,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    
    if (remainder)
    {
-      retval = read(in, data, readrate);
+      retval = readfrom(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1365,7 +1396,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // if they are, writing is not desired
       if (in != out)
       {
-           retval = write(out, data, readrate);
+           retval = writeto(out, data, readrate);
            nope_expr_ret0(retval != write_failed);
       }
    }
@@ -1413,7 +1444,7 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
          
    do
    {
-      retval = read(in, data, readrate);
+      retval = readfrom(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1448,7 +1479,7 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // if they are, writing is not desired
       if (in != out)
       {
-           retval = write(out, data, readrate);
+           retval = writeto(out, data, readrate);
            nope_expr_ret0(retval != write_failed);
       }
       
@@ -1510,6 +1541,44 @@ void encryptfile(str* oldf, str* newf, Shield* faith)
    
    file_close(in);
    file_close(out);
+}
+
+// ---------------------------------------------------------------------------------|
+// ---------------------------------------------------------------------------------||  VECTORS
+// ---------------------------------------------------------------------------------|
+
+#define VECTOR_GROW_RATE 77
+#define vect_top(v)  (cast(v->head->array, void*))
+#define vect_back(v) (cast(off64(v->head->array, v->len), void*))
+typedef struct Vect
+{
+     str* head;
+     u64 len;
+} vect;
+void vect_create()
+{
+     vect* v = cast(grace(sizeof(vect)), vect*);
+     v->head = longbuffer(VECTOR_GROW_RATE);
+     v->len = 0;
+}
+void vect_destoy(vect** vaddr)
+{
+     str_free(&(*vect)->head);
+     v->len = 0;
+     restore(
+}
+void vect_push(vect* v, void* data)
+{
+     
+}
+void vect_pop()
+{
+}
+void vect_pop_range()
+{
+}
+void vect_push()
+{
 }
 
 
