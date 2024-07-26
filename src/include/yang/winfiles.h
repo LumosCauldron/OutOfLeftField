@@ -44,7 +44,7 @@ stinl u8 filepath_check(str* filename)
 }
 
 // create/open files by fullpaths
-stinl STREAM file_open(str* filename, MODE access) 
+STREAM file_open(str* filename, MODE access) 
 {  
     nope_expr_retx(filepath_check(filename), invalid_stream);
     
@@ -84,24 +84,38 @@ stinl STREAM file_open(str* filename, MODE access)
 
     retWindowsErrorX(stream != invalid_stream, invalid_stream);
 
+        // debugging
+        #ifdef DEBUG
+             if (access != createmode)
+             {
+                say("%s : %s\n", "open called", getarray(filename));
+             }
+             else
+             {
+                say("%s : %s\n", "create called", getarray(filename));
+             }
+          
+             say("%s : %d\n", "fd given", stream);
+        #endif
+
     return stream;
 }
 
-stinl void file_close(STREAM stream)
+void file_close(STREAM stream)
 {
    nope_expr(stream != invalid_stream);
    u8 handle_closed = CloseHandle(stream);
    retWindowsError(handle_closed);
 }
 
-stinl u8 file_exists(str* filename)
+u8 file_exists(str* filename)
 {
    nope_expr_ret0(filepath_check(filename));
    u32 attributes = GetFileAttributes(filename->array);
    return (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-stinl u64 file_size(str* filename) // start here
+u64 file_size(str* filename) // start here
 {
      nope_expr_ret0(filepath_check(filename));
 
@@ -114,15 +128,19 @@ stinl u64 file_size(str* filename) // start here
      retWindowsError0(0); // there has been a windows error at this point
 }
 
-stinl u8 file_destroy(str* filename)
+u8 file_destroy(str* filename)
 {
    nope_expr_retx(filepath_check(filename), invalid_stream);
    
    u8 failflag = DeleteFileA(getarray(filename));
    retWindowsError0(failflag != 0);
    
+   say("%s -/-> %s\n", "DeleteFileA called", getarray(filename));
+   
    return 1;
 }
+
+
 
 
 #endif // STREAM_H

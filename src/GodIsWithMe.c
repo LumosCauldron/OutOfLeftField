@@ -1024,6 +1024,9 @@ stinl str* str_copy(str* dest, str* src)
    return dest;
 }
 
+/*
+     string equivalence
+                          */
 stinl u8 str_eq(str* one, str* two)
 {
    nope_ptr_ret0(one);
@@ -1036,6 +1039,9 @@ stinl u8 str_eq(str* one, str* two)
    return memeq(getarray(one), getarray(two), getlen(one));
 }
 
+/*
+     free string
+                   */
 void str_free(void* ptr)
 {
    nope_ptr(ptr);
@@ -1083,6 +1089,9 @@ void str_free(void* ptr)
    }
 }
 
+/*
+     get string element at index
+                                   */
 stinl u64 str_index(str* b, u64 i)
 {
    nope_ptr_ret0(b);
@@ -1098,6 +1107,9 @@ stinl u64 str_index(str* b, u64 i)
    }
 }
 
+/*
+     initialize string
+                         */
 stinl void str_init(str* b, u8 c)
 {
    nope_ptr(b);
@@ -1108,9 +1120,12 @@ stinl void str_init(str* b, u8 c)
 // ---------------------------------------------------------------------------------||  FILE OPERATIONS
 // ---------------------------------------------------------------------------------|
 
-     // types
-     typedef i64 STREAM;
-     typedef int MODE;
+     #define executemode 1
+     #define writemode 2
+     #define readmode 4 
+     #define readwrite 6
+     #define specialmode 7
+     #define createmode 8
      
      // read/write speed
      #define disk_block_size 4096
@@ -1124,54 +1139,232 @@ stinl void str_init(str* b, u8 c)
 
 
 #ifdef YANG
-     #include "include/yang/winfiles.h"     
+     #include <windows.h>
+     
+     typedef HANDLE STREAM;
+     typedef int MODE;
+     
+     #define read_failed -1
+     #define write_failed -1
+     #define seek_failed -1
+     #define invalid_stream ((HANDLE)(LONG_PTR)-1)
+     
+     #define stream_read(...) read(__VA_ARGS__)
+     #define stream_write(...) write(__VA_ARGS__)
+     #define set_file_size(...) ftruncate(__VA_ARGS__)
+     
+     #define max_path_supported 260 // avoids multiple syscalls
+     
+     /*   
+          windows file ops   
+                            */
+     stinl u8 filepath_check(str* filename)
+     {  
+        // check filename string is good
+        nope_ptr_ret0(filename);
+        
+        // check filename is not empty
+        nope_expr_ret0(!isemptystr(filename));
+        
+        // check filename is not too long
+        nope_expr_ret0(getlen(filename) <= max_path_supported);
+        
+        return 1;
+     }
+
+     STREAM file_open(str* filename, MODE access) 
+     {  
+         nope_expr_retx(filepath_check(filename), invalid_stream);
+         
+         u32 generic_access;
+         u32 how_to_open;
+         switch (access)
+         {
+            case readmode    : ; generic_access = GENERIC_READ;
+                                 how_to_open = OPEN_EXISTING;
+                         break;
+            case writemode   : ; generic_access = GENERIC_WRITE;
+                                 how_to_open = OPEN_EXISTING;
+                         break;
+            case specialmode : ; // fall into readwrite for permissions
+            case readwrite   : ; generic_access = GENERIC_READ | GENERIC_WRITE;
+                                 how_to_open = OPEN_EXISTING;
+                         break;
+            case executemode : ; generic_access = GENERIC_EXECUTE;
+                                 how_to_open = OPEN_EXISTING;
+                         break;
+            case createmode  : ; generic_access = GENERIC_WRITE;
+                                 how_to_open = CREATE_ALWAYS;
+                         break;
+            default : ;  nope_msg_retx(0, "unknown mode specified", invalid_stream);
+                         break;
+         }
+
+         STREAM stream = CreateFileA(filename->array, 
+                                     generic_access, 
+                                     0, NULL, 
+                                     how_to_open, 
+                                     FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH | FILE_ATTRIBUTE_HIDDEN, 
+                                     NULL);
+
+         retWindowsErrorX(stream != invalid_stream, invalid_stream);
+
+             // debugging
+             #ifdef DEBUG
+                  if (access != createmode)
+                  {
+                     say("%s : %s\n", "open called", getarray(filename));
+                  }
+                  else
+                  {
+                     say("%s : %s\n", "create called", getarray(filename));
+                  }
+               
+                  say("%s : %d\n", "fd given", stream);
+             #endif
+
+         return stream;
+     }
+
+     void file_close(STREAM stream)
+     {
+        nope_expr(stream != invalid_stream);
+        u8 handle_closed = CloseHandle(stream);
+        retWindowsError(handle_closed);
+     }
+
+     u8 file_exists(str* filename)
+     {
+        nope_expr_ret0(filepath_check(filename));
+        u32 attributes = GetFileAttributes(filename->array);
+        return (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY));
+     }
+     
+     int file_seek(STREAM in, u64 offset, u32 mode)
+     {
+          LARGE_INTEGER amount;
+          amount.QuadPart = i64c(offset);
+          
+          u8 flag = SetFilePointerEx(in, amount, 0, mode);
+          
+          retWindowsErrorX(flag, seek_failed);
+          
+          return 0;
+     }
+
+     u64 file_size(str* filename) // start here
+     {
+          nope_expr_ret0(filepath_check(filename));
+
+          WIN32_FILE_ATTRIBUTE_DATA file_info;
+          if (GetFileAttributesExA(filename->array, GetFileExInfoStandard, &file_info))
+          {
+             return u64c(file_info.nFileSizeLow) | (u64c(file_info.nFileSizeHigh) << 32);
+          }
+
+          retWindowsError0(0); // there has been a windows error at this point
+     }
+
+     u8 file_destroy(str* filename)
+     {
+        nope_expr_ret0(filepath_check(filename));
+        
+        u8 file_deleted = DeleteFileA(getarray(filename));
+        retWindowsError0(file_deleted != 0);
+        
+        say("%s -/-> %s\n", "DeleteFileA called", getarray(filename));
+        
+        return 1;
+     }
+     
+     void set_file_size(STREAM in, u64 len)
+     {
+          LARGE_INTEGER amount;
+          amount.QuadPart = i64c(len);
+          
+          u8 flag = SetFilePointerEx(in, amount, 0, FILE_BEGIN);
+          
+          #ifdef DEBUG
+          char buffer[8] = {0,0,0,0,0,0,0,0}; 
+          itoa(GetLastError(), buffer, 10);
+          nope_msg_ret(flag, buffer);
+          #endif
+          
+          flag = SetEndOfFile(in);
+          
+          #ifdef DEBUG
+          *(buffer + 0) = 0;  *(buffer + 1) = 0;
+          *(buffer + 2) = 0;  *(buffer + 3) = 0;
+          *(buffer + 4) = 0;  *(buffer + 5) = 0;
+          *(buffer + 6) = 0;  *(buffer + 7) = 0;
+          itoa(GetLastError(), buffer, 10);
+          nope_msg_ret(flag, buffer);
+          #endif
+     }
+     
+     int stream_read(STREAM in, void* data, u64 readrate)
+     {
+          DWORD bytes_read;
+
+          ReadFile(in, data, readrate, &bytes_read, 0);
+          
+          retWindowsErrorX(bytes_read == readrate, read_failed);
+          
+          return 0;
+     }
+     
+     int stream_write(STREAM out, void* data, u64 readrate)
+     {
+          DWORD bytes_written;
+
+          WriteFile(out, data, readrate, &bytes_written, nullptr);
+          
+          retWindowsErrorX(bytes_written == readrate, write_failed);
+          
+          return 0;
+     }
+       
 #else // YIN
 
      // notes: 
      // 1. improve =-> (void) __sseek((void *)fp, (0fpos_t)0, SEEK_END); maybe for O_APPEND functionality?
      // 2. improve =-> give ability to change directories to avoid maximum supported path errors
 
-     // compatibility 
-     #ifndef O_DIRECT
-        #define O_DIRECT 0 // future outlook =-> trying to avoid compilation error (we're probable compiling for Mac OSX)
-     #endif
-     
-     #define closeit(...) close(__VA_ARGS__)
-     #define openit(...) open(__VA_ARGS__)
-     #define readfrom(...) read(__VA_ARGS__)
-     #define writeto(...) write(__VA_ARGS__)
-     #define set_file_size(...) ftruncate(__VA_ARGS__)
-
      // their libs
      #include <fcntl.h>
      #include <sys/types.h>
      #include <sys/stat.h>
      #include <unistd.h>
-
-     // modes/misc
-     #define maxname 255 // misc
-     #define slashstr "/" // misc
-     #define executemode 1
-     #define writemode 2
-     #define readmode 4 
-     #define readwrite 6
-     #define specialmode 7
-     #define createmode 8
+     
+     typedef i64 STREAM;
+     typedef int MODE;
 
      #define invalid_stream -1
-     #define lseek_failed -1
+     
      #define read_failed -1
+     #define seek_failed -1
      #define stat_failed -1
-     #define write_failed -1
      #define unlink_failed -1
+     #define write_failed -1
+     
+     #define slashstr "/"
+     
+     #define stream_read(...) read(__VA_ARGS__)
+     #define stream_write(...) write(__VA_ARGS__)
+     #define stream_seek(...) lseek(__VA_ARGS__)
+     #define set_file_size(...) ftruncate(__VA_ARGS__)
 
-     // functions
-     // _______________________________________________________
-     // filepath_check
-     // 
-     // globals
-        u64 max_path_supported = 0; // avoids multiple syscalls
-     // _______________________________________________________
+     // if MAC OS compilation, define the flag to do nothing
+     #ifndef O_DIRECT
+        #define O_DIRECT 0 
+     #endif
+
+     u64 max_path_supported = 0;
+     
+     /*   
+          linux file ops   
+                          */
+     
      stinl u8 filepath_check(str* filename)
      {
         if (!max_path_supported)
@@ -1191,11 +1384,7 @@ stinl void str_init(str* b, u8 c)
         return 1;
      }
 
-     // _______________________________________________________
-     // file_open
-     // 
-     // _______________________________________________________
-     stinl STREAM file_open(str* filename, MODE access) 
+     STREAM file_open(str* filename, MODE access) 
      {
         nope_expr_retx(filepath_check(filename), invalid_stream);
         
@@ -1236,20 +1425,22 @@ stinl void str_init(str* b, u8 c)
         }
         
         // actual open operation
-        int fd = openit(getarray(filename), finalflags, mode);
+        int fd = open(getarray(filename), finalflags, mode);
         
         // debugging
-        if (access != createmode)
-        {
-           say("%s : %s\n", "open called", getarray(filename));
-        }
-        else
-        {
-           say("%s : %s\n", "create called", getarray(filename));
-        }
-     
-        say("%s : %d\n", "fd given", fd);
-        say("%s : %ld\n", "error", errno);
+        #ifdef DEBUG
+             if (access != createmode)
+             {
+                say("%s : %s\n", "open called", getarray(filename));
+             }
+             else
+             {
+                say("%s : %s\n", "create called", getarray(filename));
+             }
+          
+             say("%s : %d\n", "fd given", fd);
+             say("%s : %ld\n", "error", errno);
+        #endif
         
         // =-> if bad file descriptor 
         nope_expr_retx(fd != invalid_stream, invalid_stream);
@@ -1263,23 +1454,17 @@ stinl void str_init(str* b, u8 c)
         
         return fd;
      }
-     // _______________________________________________________
-     // file_close
-     // 
-     // _______________________________________________________
-     stinl void file_close(STREAM stream)
+
+     void file_close(STREAM stream)
      {
         nope_expr(stream >= 0);
         
         if (stream >= 0)
         {
-           closeit(stream);
+           close(stream);
         }
      }
-     // _______________________________________________________
-     // file_exists
-     // 
-     // _______________________________________________________
+
      u8 file_exists(str* filename)
      {
         nope_ptr_ret0(filename); 
@@ -1287,10 +1472,7 @@ stinl void str_init(str* b, u8 c)
         int retval = stat(getarray(filename), &info);
         return (retval == 0);
      }
-     // _______________________________________________________
-     // file_size
-     // 
-     // _______________________________________________________
+
      u64 file_size(str* filename)
      {
         nope_ptr_ret0(filename); 
@@ -1299,11 +1481,8 @@ stinl void str_init(str* b, u8 c)
         nope_expr_ret0(retval != stat_failed);
         return info.st_size;
      }
-     // _______________________________________________________
-     // file_destroy
-     // 
-     // _______________________________________________________
-     stinl u8 file_destroy(str* filename)
+
+     u8 file_destroy(str* filename)
      {
         nope_expr_ret0(filepath_check(filename));
         
@@ -1322,6 +1501,7 @@ stinl void str_init(str* b, u8 c)
         
         return 1;
      }
+     
 #endif // YIN
 
 stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(void*, u64, void*), void* context)
@@ -1345,7 +1525,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    
    while (times)
    {
-      retval = readfrom(in, data, readrate);
+      retval = stream_read(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1366,7 +1546,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // if they are, writing is not desired
       if (in != out)
       {
-          retval = writeto(out, data, readrate);
+          retval = stream_write(out, data, readrate);
           nope_expr_ret0(retval != write_failed);
       }
       
@@ -1375,7 +1555,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    
    if (remainder)
    {
-      retval = readfrom(in, data, readrate);
+      retval = stream_read(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1396,7 +1576,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // if they are, writing is not desired
       if (in != out)
       {
-           retval = writeto(out, data, readrate);
+           retval = stream_write(out, data, readrate);
            nope_expr_ret0(retval != write_failed);
       }
    }
@@ -1429,22 +1609,22 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    // calibrate first read (its ok if remainder is 0)
    if (remainder)
    {
-      retval = lseek(in, -remainder, SEEK_END);
-      nope_expr_ret0(retval != lseek_failed);
-      retval = lseek(out, -remainder, SEEK_END);
-      nope_expr_ret0(retval != lseek_failed);
+      retval = file_seek(in, -remainder, SEEK_END);
+      nope_expr_ret0(retval != seek_failed);
+      retval = file_seek(out, -remainder, SEEK_END);
+      nope_expr_ret0(retval != seek_failed);
    }
    else
    {
-      retval = lseek(in, -readrate, SEEK_END); 
-      nope_expr_ret0(retval != lseek_failed);
-      retval = lseek(out, -readrate, SEEK_END);
-      nope_expr_ret0(retval != lseek_failed);
+      retval = file_seek(in, -readrate, SEEK_END); 
+      nope_expr_ret0(retval != seek_failed);
+      retval = file_seek(out, -readrate, SEEK_END);
+      nope_expr_ret0(retval != seek_failed);
    }
          
    do
    {
-      retval = readfrom(in, data, readrate);
+      retval = stream_read(in, data, readrate);
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1479,12 +1659,12 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // if they are, writing is not desired
       if (in != out)
       {
-           retval = writeto(out, data, readrate);
+           retval = stream_write(out, data, readrate);
            nope_expr_ret0(retval != write_failed);
       }
       
       // meets 2 conditions: when only remainder exists OR last time
-      // this if-statement is the wall to make sure lseek doesn't place us before file
+      // this if-statement is the wall to make sure file_seek doesn't place us before file
       if (times < 2) 
       {
          // we just did the remainder so go around one more time if 'times' == 1
@@ -1497,16 +1677,16 @@ stinl u8 readfileb(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
       // go back the correct amount of bytes based off what we read
       if (remainder)
       {              // backup is a negative integer
-         retval = lseek(in, backup + cast(readrate - remainder, i64), SEEK_CUR);
-         nope_expr_ret0(retval != lseek_failed);
+         retval = file_seek(in, backup + cast(readrate - remainder, i64), SEEK_CUR);
+         nope_expr_ret0(retval != seek_failed);
       }
       else
       {
-         retval = lseek(in, backup, SEEK_CUR);
-         nope_expr_ret0(retval != lseek_failed);
+         retval = file_seek(in, backup, SEEK_CUR);
+         nope_expr_ret0(retval != seek_failed);
       }
-      retval = lseek(out, backup, SEEK_CUR);
-      nope_expr_ret0(retval != lseek_failed);
+      retval = file_seek(out, backup, SEEK_CUR);
+      nope_expr_ret0(retval != seek_failed);
       
       // "turn off" the remainder
       remainder = 0;
@@ -1563,9 +1743,10 @@ void vect_create()
 }
 void vect_destoy(vect** vaddr)
 {
-     str_free(&(*vect)->head);
-     v->len = 0;
-     restore(
+     str_free(&(*vaddr)->head);
+     (*vaddr)->len = 0;
+     restore(*vaddr);
+     *vaddr = nullptr;
 }
 void vect_push(vect* v, void* data)
 {
@@ -1575,9 +1756,6 @@ void vect_pop()
 {
 }
 void vect_pop_range()
-{
-}
-void vect_push()
 {
 }
 
