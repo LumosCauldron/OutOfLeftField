@@ -14,7 +14,6 @@
 // ---------------------------------------------------------------------------------||  CUSTOM TYPES
 // ---------------------------------------------------------------------------------|
 
-
 /* 
      Ladies and Gentlemen...
      
@@ -73,7 +72,6 @@ typedef __UINT64_TYPE__ u64;
 // ---------------------------------------------------------------------------------||  OFFSET INDEX
 // ---------------------------------------------------------------------------------|
 
-
 /*
      offseting pointers
                              */
@@ -97,7 +95,6 @@ typedef __UINT64_TYPE__ u64;
 
 #define invoidptr(x) (*(cast((x), void**)))
 
-
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  MATH
 // ---------------------------------------------------------------------------------|
@@ -108,11 +105,9 @@ typedef __UINT64_TYPE__ u64;
      #include <math.h>
 #endif
 
-
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  PROGRAM SWITCHES
 // ---------------------------------------------------------------------------------|
-
 
 /* 
      program switches
@@ -122,7 +117,6 @@ typedef __UINT64_TYPE__ u64;
 #else
    #define stinl 
 #endif
-
 
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  PRINT SHOP
@@ -211,11 +205,9 @@ typedef __UINT64_TYPE__ u64;
      #endif
 #endif
 
-
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  MEM OPERATIONS
 // ---------------------------------------------------------------------------------|
-
 
 /* 
      absolute value
@@ -403,6 +395,9 @@ void memscrub(void* dst, u64 len)
      mempaint(dst, len, 0xAA);
 }
 
+/* 
+     exact grep 
+                  */
 void* memsearch(void* data, u64 dlen, void* snippet, u64 slen)
 {    
      nope_ptr_ret0(data);
@@ -425,6 +420,9 @@ void* memsearch(void* data, u64 dlen, void* snippet, u64 slen)
      } while (dlen--); // keep post decrement
 }
 
+/* 
+     data search from one buffer to another
+                                             */
 void* memsearch2(void* data1, u64 dlen1, void* data2, u64 dlen2, void* snippet, u64 slen)
 {
      // at least one points to data
@@ -587,12 +585,10 @@ typedef struct DataMod
 #define execdlc(m)                        ((m)->fptr)((m)->data, (m)->len, (m)->context)
 #define dm(function, data, len, context) execdlc(dlc((function), (data), (len), (context)))
 
-
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  CRYPTO PLUGIN
 // ---------------------------------------------------------------------------------|
 #include "include/one/cipher7.h"
-
 
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  DYNAMIC MEMORY
@@ -633,7 +629,6 @@ typedef struct DataMod
    #define freedPlusPlus(x) 
    #define finished return 0
 #endif
-
 
 // ---------------------------------------------------------------------------------|
 // ---------------------------------------------------------------------------------||  CUSTOM STRINGS
@@ -711,6 +706,9 @@ typedef struct DataMod
 #define hintbuffer(len) str_buf(tolen7((len), intheap), nullptr)
 #define hlongbuffer(len) str_buf(tolen7((len), longheap), nullptr)
 
+/*
+     do not change
+                     */
 typedef struct bytes
 {
    u64 len7;
@@ -1120,22 +1118,25 @@ stinl void str_init(str* b, u8 c)
 // ---------------------------------------------------------------------------------||  FILE OPERATIONS
 // ---------------------------------------------------------------------------------|
 
-     #define executemode 1
-     #define writemode 2
-     #define readmode 4 
-     #define readwrite 6
-     #define specialmode 7
-     #define createmode 8
-     
-     // read/write speed
-     #define disk_block_size 4096
-     #ifndef SMALLBOY
-        #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mb per read (hardcoded max speed)
-     #else
-        #define fast_aligned_rate (disk_block_size) // ~4kb per read (hardcoded max speed)
-     #endif
-     #define rwDBS disk_block_size
-     #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
+     // notes: 
+     // add a way to move down dir/file path in case they go above 256-260 characters
+
+#define executemode 1
+#define writemode 2
+#define readmode 4 
+#define readwrite 6
+#define specialmode 7
+#define createmode 8
+
+// read/write speed
+#define disk_block_size 4096
+#ifndef EMBEDDED
+   #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mb per read (hardcoded max speed)
+#else
+   #define fast_aligned_rate (disk_block_size) // ~4kb per read (hardcoded max speed)
+#endif
+#define rwDBS disk_block_size
+#define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
 
 
 #ifdef YANG
@@ -1156,15 +1157,9 @@ stinl void str_init(str* b, u8 c)
                             */
      stinl u8 filepath_check(str* filename)
      {  
-        // check filename string is good
         nope_ptr_ret0(filename);
-        
-        // check filename is not empty
         nope_expr_ret0(!isemptystr(filename));
-        
-        // check filename is not too long
         nope_expr_ret0(getlen(filename) <= max_path_supported);
-        
         return 1;
      }
 
@@ -1200,7 +1195,9 @@ stinl void str_init(str* b, u8 c)
                                      generic_access, 
                                      0, NULL, 
                                      how_to_open, 
-                                     FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH | FILE_ATTRIBUTE_HIDDEN, 
+                                     FILE_FLAG_NO_BUFFERING  | 
+                                     FILE_FLAG_WRITE_THROUGH | 
+                                     FILE_ATTRIBUTE_HIDDEN, 
                                      NULL);
 
          retWindowsErrorX(stream != invalid_stream, invalid_stream);
@@ -1322,10 +1319,6 @@ stinl void str_init(str* b, u8 c)
        
 #else // YIN
 
-     // notes: 
-     // 1. improve =-> (void) __sseek((void *)fp, (0fpos_t)0, SEEK_END); maybe for O_APPEND functionality?
-     // 2. improve =-> give ability to change directories to avoid maximum supported path errors
-
      // their libs
      #include <fcntl.h>
      #include <sys/types.h>
@@ -1350,7 +1343,7 @@ stinl void str_init(str* b, u8 c)
      #define stream_seek(...) lseek(__VA_ARGS__)
      #define set_file_size(...) ftruncate(__VA_ARGS__)
 
-     // if MAC OS compilation, define the flag to do nothing
+     // if not OSX/iOS (IZANAMI)
      #ifndef O_DIRECT
         #define O_DIRECT 0 
      #endif
@@ -1368,13 +1361,8 @@ stinl void str_init(str* b, u8 c)
            max_path_supported = pathconf(slashstr, _PC_PATH_MAX);
         }
         
-        // check filename string is good
         nope_ptr_ret0(filename);
-        
-        // check filename is not empty
         nope_expr_ret0(!isemptystr(filename));
-        
-        // check filename is not too long
         nope_expr_ret0(getlen(filename) <= max_path_supported);
         
         return 1;
@@ -1438,7 +1426,6 @@ stinl void str_init(str* b, u8 c)
              say("%s : %ld\n", "error", errno);
         #endif
         
-        // =-> if bad file descriptor 
         nope_expr_retx(fd != invalid_stream, invalid_stream);
         
         #ifdef IZANAMI
