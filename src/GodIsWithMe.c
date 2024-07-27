@@ -153,7 +153,7 @@ typedef __UINT64_TYPE__ u64;
                {
                     say("%s\n", msg);
                     u64 pushout = msgPushOutCount;
-                    while (pushout) { say("%s\n", "  "); --pushout; }
+                    while (pushout) { say("%s", "  "); --pushout; }
                     say("+ %s +\n", function);
                     ++msgPushOutCount;
                }
@@ -1130,9 +1130,9 @@ stinl void str_init(str* b, u8 c)
      // read/write speed
      #define disk_block_size 4096
      #ifndef SMALLBOY
-        #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mbs per read (hardcoded max speed)
+        #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mb per read (hardcoded max speed)
      #else
-        #define fast_aligned_rate (disk_block_size) // ~4kbs per read (hardcoded max speed)
+        #define fast_aligned_rate (disk_block_size) // ~4kb per read (hardcoded max speed)
      #endif
      #define rwDBS disk_block_size
      #define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
@@ -1148,10 +1148,6 @@ stinl void str_init(str* b, u8 c)
      #define write_failed -1
      #define seek_failed -1
      #define invalid_stream ((HANDLE)(LONG_PTR)-1)
-     
-     #define stream_read(...) read(__VA_ARGS__)
-     #define stream_write(...) write(__VA_ARGS__)
-     #define set_file_size(...) ftruncate(__VA_ARGS__)
      
      #define max_path_supported 260 // avoids multiple syscalls
      
@@ -1306,9 +1302,9 @@ stinl void str_init(str* b, u8 c)
      {
           DWORD bytes_read;
 
-          ReadFile(in, data, readrate, &bytes_read, 0);
-          
-          retWindowsErrorX(bytes_read == readrate, read_failed);
+          u8 good_read = ReadFile(in, data, readrate, &bytes_read, 0);
+
+          retWindowsErrorX(good_read, read_failed);
           
           return 0;
      }
@@ -1317,9 +1313,9 @@ stinl void str_init(str* b, u8 c)
      {
           DWORD bytes_written;
 
-          WriteFile(out, data, readrate, &bytes_written, nullptr);
+          u8 good_write = WriteFile(out, data, readrate, &bytes_written, nullptr);
           
-          retWindowsErrorX(bytes_written == readrate, write_failed);
+          retWindowsErrorX(good_write, write_failed);
           
           return 0;
      }
@@ -1526,6 +1522,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    while (times)
    {
       retval = stream_read(in, data, readrate);
+
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1556,6 +1553,7 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    if (remainder)
    {
       retval = stream_read(in, data, readrate);
+         
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1763,7 +1761,7 @@ void vect_pop_range()
 // ====================================================
 // File Encryption Main
 // ====================================================
-/*int main(int numparams, char** params)
+int main(int numparams, char** params)
 {  
    // check enough parameters exist
    if (numparams < 3)
@@ -1824,7 +1822,7 @@ void vect_pop_range()
    encryptfile(filename, encrypted_filename, &faith);
    
    finished;
-}*/
+}
 
 
 // ---------------------------------------------------------------------------------|
@@ -1833,7 +1831,7 @@ void vect_pop_range()
 
 /*
      test helpers
-                    */
+                    
 void divider()
 {
      say("%s\n", "-----------------------------");
@@ -1890,7 +1888,7 @@ int main()
      return 0;
 }
 
-
+*/
 
 
 
