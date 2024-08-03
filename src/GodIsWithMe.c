@@ -134,6 +134,8 @@ typedef __UINT64_TYPE__ u64;
 #ifdef DEBUG
      #include <errno.h>
      
+     #define debug(...) say(__VA_ARGS__)
+     
      u64 msgPushOutCount = 1;
      u8 debug_check(u64 x, char* msg, const char* function)
      {
@@ -185,6 +187,7 @@ typedef __UINT64_TYPE__ u64;
          nope_msg_retx((expr), buffer, (x));
      #endif
 #else
+     #define debug(...)
      #define nope_msg(val, msg) 
      #define nope_ret(val) 
      #define nope_msg_ret(val, msg) 
@@ -1129,18 +1132,39 @@ stinl void str_init(str* b, u8 c)
 #define createmode 8
 
 // read/write speed
-#define disk_block_size 4096
-#ifndef EMBEDDED
-   #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147mb per read (hardcoded max speed)
-#else
-   #define fast_aligned_rate (disk_block_size) // ~4kb per read (hardcoded max speed)
-#endif
-#define rwDBS disk_block_size
-#define rwFAR fast_aligned_rate // aligned read/write rate (don't change)
+
 
 
 #ifdef YANG
      #include <windows.h>
+     
+     /* 
+          Windows Server 2003 and Windows XP:  
+          Pipe write operations across a network are limited in size per write. 
+          The amount varies per platform. 
+          For x86 platforms it's 63.97 MB. 
+          For x64 platforms it's 31.97 MB. 
+          For Itanium it's 63.95 MB. 
+          For more information regarding pipes, see the Remarks section 
+          fOr mOrE iNfOrMaTiOn rEgArDiNg pIpEs, sEe tHe rEmArKs sEcTiOn   
+                                                                                  */
+     #define disk_block_size 4096
+     
+     #if defined(WINXP) || defined(WIN2003)
+     
+          #define fast_aligned_rate (1024 * 1024 * 30) // 30 megabytes per read
+          
+     #elif defined EMBED
+     
+          #define fast_aligned_rate (disk_block_size) // 4 kilobytes per read
+     #else
+     
+          #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147 megabytes per read
+     
+     #endif
+     
+     #define rwDBS disk_block_size
+     #define rwFAR fast_aligned_rate
      
      typedef HANDLE STREAM;
      typedef int MODE;
@@ -1206,14 +1230,14 @@ stinl void str_init(str* b, u8 c)
              #ifdef DEBUG
                   if (access != createmode)
                   {
-                     say("%s : %s\n", "open called", getarray(filename));
+                     debug("%s : %s\n", "open called", getarray(filename));
                   }
                   else
                   {
-                     say("%s : %s\n", "create called", getarray(filename));
+                     debug("%s : %s\n", "create called", getarray(filename));
                   }
                
-                  say("%s : %d\n", "fd given", stream);
+                  debug("%s : %d\n", "fd given", stream);
              #endif
 
          return stream;
@@ -1222,8 +1246,9 @@ stinl void str_init(str* b, u8 c)
      void file_close(STREAM stream)
      {
         nope_expr(stream != invalid_stream);
-        u8 handle_closed = CloseHandle(stream);
-        retWindowsError(handle_closed);
+        u8 if_handle_not_closed = CloseHandle(stream);
+        retWindowsError(if_handle_not_closed);
+        debug("fd closed : %ld\n", stream);
      }
 
      u8 file_exists(str* filename)
@@ -1233,16 +1258,21 @@ stinl void str_init(str* b, u8 c)
         return (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY));
      }
      
-     int file_seek(STREAM in, u64 offset, u32 mode)
+     u64 file_seek(STREAM in, u64 offset, u32 mode)
      {
-          LARGE_INTEGER amount;
+          LARGE_INTEGER amount = {0};
+          LARGE_INTEGER newPos = {0};
           amount.QuadPart = i64c(offset);
           
-          u8 flag = SetFilePointerEx(in, amount, 0, mode);
+          u8 if_file_pointer_not_set = SetFilePointerEx(in, amount, &newPos, mode);
+          retWindowsError0(if_file_pointer_not_set);
           
-          retWindowsErrorX(flag, seek_failed);
-          
-          return 0;
+          return u64c(newPos.QuadPart);
+     }
+     
+     stinl u64 file_position(STREAM in)
+     {
+          return file_seek(in, 0, FILE_CURRENT);
      }
 
      u64 file_size(str* filename) // start here
@@ -1262,46 +1292,38 @@ stinl void str_init(str* b, u8 c)
      {
         nope_expr_ret0(filepath_check(filename));
         
-        u8 file_deleted = DeleteFileA(getarray(filename));
-        retWindowsError0(file_deleted != 0);
+        u8 if_file_not_deleted = DeleteFileA(getarray(filename));
+        retWindowsError0(if_file_not_deleted != 0);
         
-        say("%s -/-> %s\n", "DeleteFileA called", getarray(filename));
+        debug("%s -/-> %s\n", "DeleteFileA called", getarray(filename));
         
         return 1;
      }
      
-     void set_file_size(STREAM in, u64 len)
+     int set_file_size(STREAM in, u64 len)
      {
-          LARGE_INTEGER amount;
-          amount.QuadPart = i64c(len);
+          // save original file position
+          u64 origin_pos = file_position(in);
           
-          u8 flag = SetFilePointerEx(in, amount, 0, FILE_BEGIN);
+          // map out file size by moving pointer to desired distance from beginning
+          file_seek(in, len, FILE_BEGIN);
           
-          #ifdef DEBUG
-          char buffer[8] = {0,0,0,0,0,0,0,0}; 
-          itoa(GetLastError(), buffer, 10);
-          nope_msg_ret(flag, buffer);
-          #endif
+          // set the file boundary to where file pointer is
+          u8 if_end_of_file_not_set = SetEndOfFile(in);
+          retWindowsErrorX(if_end_of_file_not_set, seek_failed);
           
-          flag = SetEndOfFile(in);
+          // reset file pointer to original position
+          file_seek(in, origin_pos, FILE_BEGIN);
           
-          #ifdef DEBUG
-          *(buffer + 0) = 0;  *(buffer + 1) = 0;
-          *(buffer + 2) = 0;  *(buffer + 3) = 0;
-          *(buffer + 4) = 0;  *(buffer + 5) = 0;
-          *(buffer + 6) = 0;  *(buffer + 7) = 0;
-          itoa(GetLastError(), buffer, 10);
-          nope_msg_ret(flag, buffer);
-          #endif
+          return 0;
      }
      
      int stream_read(STREAM in, void* data, u64 readrate)
      {
           DWORD bytes_read;
 
-          u8 good_read = ReadFile(in, data, readrate, &bytes_read, 0);
-
-          retWindowsErrorX(good_read, read_failed);
+          u8 if_bad_read = ReadFile(in, data, readrate, &bytes_read, 0);
+          retWindowsErrorX(if_bad_read, read_failed);
           
           return 0;
      }
@@ -1310,15 +1332,29 @@ stinl void str_init(str* b, u8 c)
      {
           DWORD bytes_written;
 
-          u8 good_write = WriteFile(out, data, readrate, &bytes_written, nullptr);
-          
-          retWindowsErrorX(good_write, write_failed);
+          u8 if_bad_write = WriteFile(out, data, readrate, &bytes_written, nullptr);
+          retWindowsErrorX(if_bad_write, write_failed);
           
           return 0;
      }
        
 #else // YIN
 
+     #define disk_block_size 4096
+     
+     #ifdef EMBED
+     
+          #define fast_aligned_rate (disk_block_size) // 4 kilobytes per read
+          
+     #else
+     
+          #define fast_aligned_rate ((u64)(0b00000001 << 30)) // ~2147 megabytes per read
+     
+     #endif
+     
+     #define rwDBS disk_block_size
+     #define rwFAR fast_aligned_rate
+     
      // their libs
      #include <fcntl.h>
      #include <sys/types.h>
@@ -1338,9 +1374,9 @@ stinl void str_init(str* b, u8 c)
      
      #define slashstr "/"
      
+     #define file_seek(...) lseek(__VA_ARGS__)
      #define stream_read(...) read(__VA_ARGS__)
      #define stream_write(...) write(__VA_ARGS__)
-     #define stream_seek(...) lseek(__VA_ARGS__)
      #define set_file_size(...) ftruncate(__VA_ARGS__)
 
      // if not OSX/iOS (IZANAMI)
@@ -1415,15 +1451,15 @@ stinl void str_init(str* b, u8 c)
         #ifdef DEBUG
              if (access != createmode)
              {
-                say("%s : %s\n", "open called", getarray(filename));
+                debug("%s : %s\n", "open called", getarray(filename));
              }
              else
              {
-                say("%s : %s\n", "create called", getarray(filename));
+                debug("%s : %s\n", "create called", getarray(filename));
              }
           
-             say("%s : %d\n", "fd given", fd);
-             say("%s : %ld\n", "error", errno);
+             debug("%s : %d\n", "fd given", fd);
+             debug("%s : %ld\n", "error", errno);
         #endif
         
         nope_expr_retx(fd != invalid_stream, invalid_stream);
@@ -1445,7 +1481,15 @@ stinl void str_init(str* b, u8 c)
         if (stream >= 0)
         {
            close(stream);
+           debug("fd closed : %ld\n", stream);
         }
+     }
+     
+     u64 file_position(STREAM in)
+     {
+          i64 position = file_seek(in, 0, SEEK_CUR);
+          nope_expr_ret0(position != seek_failed);
+          return u64c(position);
      }
 
      u8 file_exists(str* filename)
@@ -1476,8 +1520,8 @@ stinl void str_init(str* b, u8 c)
         // =-> destroy link to the file 
         int success = unlink(getarray(filename));
         
-        say("%s -/-> %s\n", "unlink called", getarray(filename));
-        say("%s : %d\n", "error", errno);
+        debug("%s -/-> %s\n", "unlink called", getarray(filename));
+        debug("%s : %d\n", "error", errno);
         
         // =-> if unlinking failed
         nope_expr_ret0(success != unlink_failed);
@@ -1509,7 +1553,6 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    while (times)
    {
       retval = stream_read(in, data, readrate);
-
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1540,7 +1583,6 @@ stinl u8 readfilef(STREAM in, u64 amt, STREAM out, Shield* faith, u64 (*fptr)(vo
    if (remainder)
    {
       retval = stream_read(in, data, readrate);
-         
       nope_expr_ret0(retval != read_failed);
       
       // check if processing of data is needed
@@ -1687,21 +1729,21 @@ void encryptfile(str* oldf, str* newf, Shield* faith)
 {
    u64 filesz = file_size(oldf);
    nope_expr(filesz > 0);
-   say("file size %lu\n", filesz);
    
    STREAM in = file_open(oldf, readmode);
    STREAM out = file_open(newf, createmode);
    
    set_file_size(out, filesz); 
-   say("file size %lu\n", filesz);
    if (readfilef(in, filesz, out, faith, nullptr, nullptr))
    {
       set_file_size(out, filesz); // corrects the overwriting of direct-disk-writes
-      say("%s\n", "Read this file successfully.");
+      debug("read [%s] successfully (%lu bytes)\n", oldf->array, filesz);
+      debug("wrote [%s] successfully (%lu bytes)\n", newf->array, filesz);
    }
    else
    {
-      say("%s\n", "Did NOT read this file successfully.");
+      debug("FAILED to read  [%s] fully\n", oldf->array);
+      debug("FAILED to write [%s] fully\n", newf->array);
    }
    
    file_close(in);
@@ -1755,13 +1797,13 @@ int main(int numparams, char** params)
    {
      return 1;
    }
-   
+
    // file path length
    u32 filename_length = tilnul(params[1]);
    
    // file path to encrypt
    str* filename = charstr(filename_length, params[1]);
-   
+
    // check it exists
    if (!file_exists(filename))
    {
