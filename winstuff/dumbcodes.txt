@@ -16487,3 +16487,85 @@ ERROR_API_UNAVAILABLE
     This API cannot be used in the context of the caller's application type.
 
 ~~~ END_OF_ALL_ERRORS
+
+To Homer
+
+Its been a very great privilege to have worked along side a veteran data mover. 
+I will remember you a great coworker from my first job in life.
+You are a very kind person.
+
+"I'll leave you, the instructions for eternal life.\nI entreat upward to you, not as above you or equal."
+Romans 3:23\nFor all have sinned and fall short of the glory of God.
+Romans 6:23\nFor the wages of sin is death,\nbut the free gift of God is eternal life\nin Christ Jesus our Lord.
+John 3:16\nFor God so loved the world, \nthat He gave his only begotten Son, \nthat whosoever believes in Him should not perish,\nbut have everlasting life.
+Mark 1:15\nThe time is fulfilled,\nand the kingdom of God is at hand,\nRepent, and Believe in the Gospel.
+Repent  -> μετανοεῖτε (metanoeite) -> From meta and noieo; to think differently or afterwards, i.e. Reconsider.\nBelieve -> πιστεύετε  (pisteuete)  -> From pistis; to have faith, i.e. Credit; by implication, to entrust.
+Ezekiel 18:32\n"For I have no pleasure in the death of one who dies,” says the Lord God.\n“Therefore turn and live!”
+Jeremiah 29:11\n"For I know the thoughts that I think toward you", says the Lord,\n"thoughts of peace and not of evil, to give you a future and a hope."
+Romans 10:9-13\nif you confess with your mouth that Jesus is Lord\nand believe in your heart that God raised him from the dead,\nyou will be saved.\nFor with the heart one believes and is justified, and with the mouth one confesses and is saved.\nFor the Scripture says, “Everyone who believes in him will not be put to shame.”\nFor there is no distinction between Jew and Greek; for the same Lord is Lord of all, bestowing his riches on all who call on him.\nFor “everyone who calls on the name of the Lord will be saved.”
+
+#include <stdio.h>
+#include <unistd.h>
+
+#define clear "\x1b[0m"
+#define red "\x1b[38;5;196m"
+#define orange "\x1b[38;5;208m"
+#define yellow "\x1b[38;5;226m"
+#define green "\x1b[38;5;46m"
+#define cyan "\x1b[38;5;51m"
+#define blue "\x1b[38;5;21m"
+#define indigo "\x1b[38;5;93m"
+#define violet "\x1b[38;5;201m"
+
+const char* test = "Hello World!";
+
+const char* instructions  = "I leave you the instructions for Eternal Life.\nI entreat up to you and not as above or equal.\n\t\t     [press enter to continue]";
+const char* romans3_23    = "Romans 3:23\nFor all have sinned and fall short of the glory of God.";
+const char* romans6_23    = "Romans 6:23\nFor the wages of sin is death,\nbut the free gift of God is eternal life\nin Christ Jesus our Lord.";
+const char* john3_16      = "John 3:16\nFor God so loved the world, \nthat He gave his only begotten Son, \nthat whosoever believes in Him should not perish,\nbut have everlasting life.";
+const char* mark1_15      = "Mark 1:15\nThe time is fulfilled,\nand the kingdom of God is at hand,\nRepent, and Believe in the Gospel.";
+const char* repentbelieve = "Repent  -> μετανοεῖτε (metanoeite) -> From meta and noieo; to think differently or afterwards, i.e. Reconsider.\nBelieve -> πιστεύετε  (pisteuete)  -> From pistis; to have faith, i.e. Credit; by implication, to entrust.";
+const char* ezekiel18_32  = "Ezekiel 18:32\n\"For I have no pleasure in the death of one who dies,\" says the Lord God.\n\"Therefore turn and live!\"";
+const char* jeremiah29_11 = "Jeremiah 29:11\n\"For I know the thoughts that I think toward you\", says the Lord,\n\"thoughts of peace and not of evil, to give you a future and a hope.\"";
+const char* romans10_9_13 = "Romans 10:8-13\nBut what does it say? “The word is near you, in your mouth and in your heart” (that is, the word of faith that we proclaim); \nbecause, if you confess with your mouth that Jesus is Lord\nand believe in your heart that God raised him from the dead, you will be saved.\nFor with the heart one believes and is justified, and with the mouth one confesses and is saved.\nFor the Scripture says, \"Everyone who believes in him will not be put to shame.\"\nFor there is no distinction between Jew and Greek; for the same Lord is Lord of all, bestowing his riches on all who call on him.\nFor \"everyone who calls on the name of the Lord will be saved.\"";
+
+void enter()
+{
+    printf("\n\t\t\t\t\t\t\t. ");
+        while (getchar() != '\n') 
+        {
+            // Do nothing, just wait
+        }
+}
+
+void slowprintf(const char* str)
+{
+    while (*str)
+    {
+        printf("%c", *str);
+        //usleep(10000);
+        ++str;
+    }
+}
+
+void colorit(const char* color, const char* str)
+{
+        printf("%s",   color);
+    slowprintf(str);
+        printf("%s\n", clear);
+}
+
+int main() 
+{
+    colorit(clear,  instructions); //enter();
+    colorit(red,    romans3_23); //enter();
+    colorit(orange, romans6_23); //enter();
+    colorit(yellow, john3_16); //enter();
+    colorit(green,  mark1_15); //enter();
+    colorit(cyan,   repentbelieve); //enter();
+    colorit(blue,   ezekiel18_32); //enter();
+    colorit(indigo, jeremiah29_11); //enter();
+    colorit(violet, romans10_9_13);
+    
+    return 0;
+}
